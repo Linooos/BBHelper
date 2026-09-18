@@ -76,8 +76,8 @@
             "entry": "App_Launch"
         },
         {
-            "name": "关卡战斗（需先停在关卡详情页）",
-            "entry": "Battle_EnterFromDetail",
+            "name": "通用通关（需先停在关卡详情页）",
+            "entry": "Battle_ClearStage",
             "option": ["使用双倍券"]
         }
     ],
