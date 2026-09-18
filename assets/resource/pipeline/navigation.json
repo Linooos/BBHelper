@@ -1,0 +1,173 @@
+{
+    "Nav_LobbyTab": {
+        "doc": "点顶部「首页」标签回大厅。不需要识别大厅特征——点首页必然回大厅。",
+        "recognition": {
+            "type": "OCR",
+            "param": { "roi": [600, 40, 680, 70], "expected": ["首页"] }
+        },
+        "action": { "type": "Click", "param": {} },
+        "next": [],
+        "post_delay": 800,
+        "timeout": 3000,
+        "max_hit": 2
+    },
+
+    "Nav_SocialTab": {
+        "doc": "点顶部「社交」标签。",
+        "recognition": {
+            "type": "OCR",
+            "param": { "roi": [600, 40, 680, 70], "expected": ["社交"] }
+        },
+        "action": { "type": "Click", "param": {} },
+        "next": [],
+        "post_delay": 800,
+        "timeout": 3000
+    },
+
+    "Nav_StoreTab": {
+        "recognition": {
+            "type": "OCR",
+            "param": { "roi": [600, 40, 680, 70], "expected": ["商店"] }
+        },
+        "action": { "type": "Click", "param": {} },
+        "next": [],
+        "post_delay": 800,
+        "timeout": 3000
+    },
+
+    "Nav_BattleTab": {
+        "recognition": {
+            "type": "OCR",
+            "param": { "roi": [600, 40, 680, 70], "expected": ["战斗"] }
+        },
+        "action": { "type": "Click", "param": {} },
+        "next": [],
+        "post_delay": 800,
+        "timeout": 3000
+    },
+
+    "Nav_MailEntry": {
+        "doc": "社交页的「我的消息」入口，即邮件。",
+        "recognition": {
+            "type": "OCR",
+            "param": { "roi": [590, 310, 240, 62], "expected": ["我的消息"] }
+        },
+        "action": { "type": "Click", "param": {} },
+        "next": [],
+        "post_delay": 800,
+        "timeout": 3000
+    },
+
+    "Nav_TaskCenterIcon": {
+        "doc": "大厅左侧任务中心图标（白色本子）。无文字，只能用 TemplateMatch。模板已剔除右上角通知红点，避免红点出现/消失导致失配。",
+        "recognition": {
+            "type": "TemplateMatch",
+            "param": {
+                "roi": [0, 130, 120, 100],
+                "template": "Lobby/TaskCenterIcon.png",
+                "threshold": 0.7
+            }
+        },
+        "action": { "type": "Click", "param": {} },
+        "next": [],
+        "post_delay": 800,
+        "timeout": 3000
+    },
+
+    "Nav_PresenceTab": {
+        "doc": "任务中心左侧「存在感」标签。四个标签共用大 ROI（任务/存在感/每周任务/使魔探险），靠 expected 唯一性区分；x 上界刻意收窄到 140，避开顶部的「每日存在感」标题。",
+        "recognition": {
+            "type": "OCR",
+            "param": { "roi": [10, 200, 130, 290], "expected": ["存在感"] }
+        },
+        "action": { "type": "Click", "param": {} },
+        "next": [],
+        "post_delay": 800,
+        "timeout": 3000
+    },
+
+    "Nav_SummonTab": {
+        "recognition": {
+            "type": "OCR",
+            "param": { "roi": [10, 200, 130, 290], "expected": ["使魔探险"] }
+        },
+        "action": { "type": "Click", "param": {} },
+        "next": [],
+        "post_delay": 800,
+        "timeout": 3000
+    },
+
+    "Nav_WeeklyTab": {
+        "recognition": {
+            "type": "OCR",
+            "param": { "roi": [10, 200, 130, 290], "expected": ["每周任务"] }
+        },
+        "action": { "type": "Click", "param": {} },
+        "next": [],
+        "post_delay": 800,
+        "timeout": 3000
+    },
+
+    "Nav_GotoLobby": {
+        "doc": "回大厅。六个顶部标签都是文字，全部走 OCR，不写死坐标；共用同一个大 ROI，靠 expected 唯一性区分。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Nav_LobbyTab"],
+        "max_hit": 5
+    },
+
+    "Nav_GotoSocial": {
+        "doc": "去社交页。链式降级：本页直接命中 → 否则先回大厅再试。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Nav_SocialTab", "[JumpBack]Nav_GotoLobby"],
+        "max_hit": 5
+    },
+
+    "Nav_GotoMail": {
+        "doc": "去邮件页。链式降级：本页直接命中 → 否则先去社交页。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Nav_MailEntry", "[JumpBack]Nav_GotoSocial"],
+        "max_hit": 5
+    },
+
+    "Nav_GotoBattle": {
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Nav_BattleTab", "[JumpBack]Nav_GotoLobby"],
+        "max_hit": 5
+    },
+
+    "Nav_GotoTaskCenter": {
+        "doc": "用 TemplateMatch 点大厅左侧任务中心图标。不在大厅时会失配，链路自然降级到先回大厅。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Nav_TaskCenterIcon", "[JumpBack]Nav_GotoLobby"],
+        "max_hit": 5
+    },
+
+    "Nav_GotoPresence": {
+        "doc": "去存在感页。链式降级：已在任务中心则直接切标签 → 否则先打开任务中心。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Nav_PresenceTab", "[JumpBack]Nav_GotoTaskCenter"],
+        "max_hit": 5
+    },
+
+    "Nav_GotoSummon": {
+        "doc": "去使魔探险页。链式降级：已在任务中心则直接切标签 → 否则先打开任务中心。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Nav_SummonTab", "[JumpBack]Nav_GotoTaskCenter"],
+        "max_hit": 5
+    },
+
+    "Nav_GotoWeekly": {
+        "doc": "去每周任务页。链式降级：已在任务中心则直接切标签 → 否则先打开任务中心。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Nav_WeeklyTab", "[JumpBack]Nav_GotoTaskCenter"],
+        "max_hit": 5
+    }
+}

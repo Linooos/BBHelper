@@ -1,0 +1,43 @@
+{
+    "Presence_Entry": {
+        "doc": "存在感阶段。入口：大厅左侧任务中心图标 → 左侧「存在感」标签。每日 8 条任务，满分 150。任务列表顺序可能每日变化，「前往」按钮的 y 随行变，因此不能用固定坐标，需动态定位（presence_find_task_row）。阶段 3 实现，当前为直通骨架。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Presence_PhaseDone"]
+    },
+
+    "Presence_CombatTask_Gate": {
+        "doc": "分类切点：火线救援（使魔的爱）/ 世界这么大（虚轴之庭），消耗体力，走快捷战斗。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Presence_Evaluate"]
+    },
+
+    "Presence_ShopPurchase_Gate": {
+        "doc": "分类切点：战力补强，真实消费。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Presence_Evaluate"]
+    },
+
+    "Presence_Resonance_Gate": {
+        "doc": "分类切点：共鸣之力，刷新共鸣屋，可能消耗水晶。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Presence_Evaluate"]
+    },
+
+    "Presence_Evaluate": {
+        "doc": "汇总点：所有分类任务执行完后的汇合处。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Presence_PhaseDone"]
+    },
+
+    "Presence_PhaseDone": {
+        "doc": "存在感阶段结束，交给体力消耗阶段。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Daily_Stamina"]
+    }
+}

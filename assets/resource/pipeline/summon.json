@@ -1,0 +1,15 @@
+{
+    "Summon_Entry": {
+        "doc": "使魔探险阶段切点。阶段 3 实现：领取所有「探索完成」条目 + 把已接取数补到上限 10。对应每日任务「星辰的彼方」。当前为直通骨架。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Summon_PhaseDone"]
+    },
+
+    "Summon_PhaseDone": {
+        "doc": "使魔探险阶段结束，交给存在感阶段。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Presence_Entry"]
+    }
+}

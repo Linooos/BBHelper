@@ -1,0 +1,43 @@
+{
+    "Common_OcrBase": {
+        "doc": "OCR 基座节点。自身不带 roi/expected，仅供 CustomRecognition 通过 context.run_recognition 临时覆盖参数使用，不参与主流程。",
+        "recognition": { "type": "OCR", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": []
+    },
+
+    "Common_PopupHandle": {
+        "doc": "通用弹窗处理。安全约定：Common_DenyList 必须排在 Common_NoticeConfirm 之前——中央 (640,483) 的「确定」既可能是普通提示也可能是消耗确认框，先过黑名单再点确定。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Common_DenyList", "Common_NoticeConfirm"],
+        "max_hit": 30
+    },
+
+    "Common_DenyList": {
+        "doc": "兜底的兜底：弹窗里出现消耗/破坏性文案就中止整条任务链。词表刻意保持很窄，只拦真正的危险操作，避免误伤正常流程。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [340, 180, 600, 360],
+                "expected": ["删除", "消耗水晶", "确认购买", "立即购买", "确认花费", "确认消耗"]
+            }
+        },
+        "action": { "type": "StopTask", "param": {} },
+        "timeout": 1500
+    },
+
+    "Common_NoticeConfirm": {
+        "doc": "中央「确定」按钮，常见于提示框。ROI 锁死在按钮本身，不覆盖上方文案区，避免误识别。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [556, 448, 168, 70],
+                "expected": ["确定"]
+            }
+        },
+        "action": { "type": "Click", "param": {} },
+        "next": [],
+        "timeout": 1500
+    }
+}

@@ -1,0 +1,15 @@
+{
+    "Weekly_Entry": {
+        "doc": "每周存在感（满分 550）。入口：任务中心 → 左侧「每周任务」标签。六条：空想迷域 / 日常训练 / 友情积累 / 社团补给 / 社团荣誉 / 社团的爱。与每日存在感共用同一套行定位逻辑（见 presence.json）。阶段 7 实现，当前为直通骨架。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Weekly_PhaseDone"]
+    },
+
+    "Weekly_PhaseDone": {
+        "doc": "每周阶段结束，进入终点。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Daily_Finish"]
+    }
+}

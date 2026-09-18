@@ -1,0 +1,15 @@
+{
+    "Battle_Entry": {
+        "doc": "战斗页导航与「快捷战斗」。关键前提：快捷战斗按钮直接秒过结算、不进入战斗流程，因此本项目不需要任何战斗操作逻辑。已侦察路径：战斗页→左侧「活动」标签→右侧可独立滚动列表(x≈755~1240)→「多元裂缝」(倒数第3个)→内部左列「使魔的爱」≈(628,478) / 内部右列「虚轴之庭」→关卡详情页底部「快捷战斗」≈(1035,651)。注意：战斗页右上角那个按钮是面包屑（显示当前目录名，点击回上级），不是功能入口。阶段 4 实现，当前为直通骨架。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Battle_PhaseDone"]
+    },
+
+    "Battle_PhaseDone": {
+        "doc": "战斗阶段结束。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": []
+    }
+}

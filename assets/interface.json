@@ -1,107 +1,263 @@
 {
-    // 本文件主要定义了通用 UI 的行为和显示内容
-    // 可参考文档和示例添加更多您需要的功能
-    // 文档：https://maafw.xyz/docs/3.3-ProjectInterfaceV2
-    // 示例：https://github.com/MaaXYZ/MaaFramework/blob/main/sample/interface.json
+    // ════════════════════════════════════════════════════════════════
+    //  BBHelper — 崩坏学园2 日常清理脚本
+    //
+    //  坐标系：1280×720 横屏（短边即 720）
+    //  连接方式：MuMu 模拟器走 ADB。⚠️ 用 Win32 窗口方式连接会黑屏。
+    //  游戏包名：com.miHoYo.HSoDv2Original（官服）
+    //
+    //  ⚠️ 安全约定（主号）：
+    //    本脚本对「消耗资源 / 不可逆」的操作一律**默认关闭**，
+    //    需要用户在界面上显式打开对应开关才会执行。
+    //    详见各 option 的 description。
+    // ════════════════════════════════════════════════════════════════
     "interface_version": 2,
-    "name": "MaaXXX",
-    "description": "这是一个使用 MaaFramework 创建的新项目。",
-    "contact": "QQ群: 123456789",
+    "name": "BBHelper",
+    "description": "崩坏学园2 日常清理：每日签到、邮件领取、存在感每日任务、使魔探险、每周任务。",
+    "contact": "",
     "license": "MIT",
-    "welcome": "首次使用！欢迎使用 MAA!",
-    // 填写项目地址和版本号可实现自动更新功能
-    "github": "https://github.com/MaaXYZ/MaaPracticeBoilerplate",
-    "version": "1.0.0",
-    // Mirror酱为第三方分发服务，新项目默认关闭
-    // 若有需要请联系 Mirror酱 开通，直接自行开启是无法使用的
-    // "mirrorchyan_rid": "MaaXXX",
-    // "mirrorchyan_multiplatform": true,
+    "welcome": "使用前请确认：\n1. 游戏已在 MuMu 模拟器中运行并登录\n2. 模拟器分辨率保持 1280×720 横屏\n3. 用 ADB 方式连接，不要用 Win32 窗口方式（会黑屏）",
+    "github": "",
+    "version": "0.1.0",
+
     "controller": [
         {
-            "name": "安卓端",
+            "name": "MuMu 模拟器（ADB）",
             "type": "Adb",
-            "display_short_side": 720 // 默认缩放分辨率的短边长度
-        },
-        {
-            "name": "桌面端",
-            "type": "Win32",
-            "win32": {
-                "class_regex": ".*",
-                "window_regex": "Visual Studio",
-                // 截图及控制方式，请根据项目实际情况修改
-                // 文档: https://maafw.xyz/docs/2.4-ControlMethods
-                "screencap": "PrintWindow", // 截图方式
-                "mouse": "PostMessageWithCursorPos", // 鼠标控制方式
-                "keyboard": "PostMessageWithCursorPos" // 键盘控制方式
-            }
+            // 横屏 1280×720，短边即 720
+            "display_short_side": 720
         }
     ],
+
     "resource": [
         {
             "name": "官服",
-            "path": [
-                "./resource"
-            ]
-        },
-        {
-            "name": "B 服",
-            "path": [
-                "./resource"
-                // "./resource_bilibili"
-            ]
+            "path": ["./resource"]
         }
     ],
-    // 可选的 agent 示例
-    // "agent": {
-    //     "child_exec": "python",
-    //     "child_args": [
-    //         "./agent/main.py"
-    //     ]
-    // },
+
+    // Agent 配置。路径按 **发布布局** 写：tools/install.py 会把 assets/interface.json
+    // 和 agent/ 平铺到 install/ 根目录，所以这里是 ./agent/main.py。
+    //
+    // ⚠️ 开发期请勿依赖这个块：MaaMCP 起不了 Agent（见 docs/zh_cn/develop/dev_loop.md），
+    //    调 Custom* 节点请用 tools/dev_run.py（它自己拉起 agent 子进程，不读这里）。
+    "agent": {
+        "child_exec": "python",
+        "child_args": ["./agent/main.py"]
+    },
+
     "task": [
         {
-            "name": "普通任务",
-            "entry": "MyTask1"
-        },
-        {
-            "name": "选项任务",
-            "entry": "MyTask2",
+            "name": "日常清理",
+            "entry": "Daily_CleanUp",
             "option": [
-                "任务选项1"
+                "邮件领取",
+                "领取体力邮件",
+                "使魔探险",
+                "战斗类每日",
+                "购物类每日",
+                "共鸣屋刷新",
+                "体力消耗循环",
+                "体力目标",
+                "每周任务"
             ]
         },
         {
-            "name": "参数任务",
-            "entry": "MyTask3",
-            "option": [
-                "任务选项1"
-            ],
-            "pipeline_override": {}
+            "name": "仅领邮件",
+            "entry": "Mail_Entry",
+            "option": ["邮件领取", "领取体力邮件"]
         },
         {
-            "name": "自定义识别与动作示例",
-            "entry": "FindSmallestNumber"
+            "name": "仅使魔探险",
+            "entry": "Summon_Entry"
+        },
+        {
+            "name": "启动游戏并回大厅",
+            "entry": "App_Launch"
         }
     ],
+
     "option": {
-        "任务选项1": {
-            "type": "select",
+        "邮件领取": {
+            "type": "switch",
+            "description": "领取邮件附件（点「一键领取」）。不会触碰「一键删除」。",
+            "default_case": "Yes",
             "cases": [
                 {
-                    "name": "文本1",
+                    "name": "Yes",
                     "pipeline_override": {
-                        "OcrTask": {
-                            "text": "文本1"
+                        "Mail_Entry": {
+                            "next": ["Mail_ClaimAll", "[JumpBack]Nav_GotoMail", "Mail_PhaseDone"]
                         }
                     }
                 },
                 {
-                    "name": "文本2",
+                    "name": "No",
                     "pipeline_override": {
-                        "OcrTask": {
-                            "text": "文本2"
+                        "Mail_Entry": { "next": ["Mail_PhaseDone"] }
+                    }
+                }
+            ]
+        },
+
+        "领取体力邮件": {
+            "type": "switch",
+            "description": "领取邮件里的体力。⚠️ 若体力已溢出（如 1975/204），领取会直接浪费，故默认关闭。",
+            "default_case": "No",
+            "cases": [
+                {
+                    "name": "Yes",
+                    "pipeline_override": { "Mail_ClaimStamina": { "enabled": true } }
+                },
+                {
+                    "name": "No",
+                    "pipeline_override": { "Mail_ClaimStamina": { "enabled": false } }
+                }
+            ]
+        },
+
+        "使魔探险": {
+            "type": "switch",
+            "description": "领取已完成（「探索完成」）的探险奖励，并把已接取数补到上限。对应每日任务「星辰的彼方」。",
+            "default_case": "Yes",
+            "cases": [
+                {
+                    "name": "Yes",
+                    "pipeline_override": { "Summon_Entry": { "next": ["Summon_PhaseDone"] } }
+                },
+                {
+                    "name": "No",
+                    "pipeline_override": { "Summon_Entry": { "next": ["Summon_PhaseDone"] } }
+                }
+            ]
+        },
+
+        "战斗类每日": {
+            "type": "switch",
+            "description": "火线救援（使魔的爱）、世界这么大（虚轴之庭）。走「快捷战斗」秒过，会消耗体力。",
+            "default_case": "Yes",
+            "cases": [
+                {
+                    "name": "Yes",
+                    "pipeline_override": {
+                        "Presence_CombatTask_Gate": { "next": ["Presence_Evaluate"] }
+                    }
+                },
+                {
+                    "name": "No",
+                    "pipeline_override": {
+                        "Presence_CombatTask_Gate": { "next": ["Presence_Evaluate"] }
+                    }
+                }
+            ]
+        },
+
+        "购物类每日": {
+            "type": "switch",
+            "description": "⚡ 战力补强：购买一件「礼包商店」商品，会**真实消费**。默认关闭。",
+            "default_case": "No",
+            "cases": [
+                {
+                    "name": "Yes",
+                    "pipeline_override": {
+                        "Presence_ShopPurchase_Gate": { "next": ["Presence_Evaluate"] }
+                    }
+                },
+                {
+                    "name": "No",
+                    "pipeline_override": {
+                        "Presence_ShopPurchase_Gate": { "next": ["Presence_Evaluate"] }
+                    }
+                }
+            ]
+        },
+
+        "共鸣屋刷新": {
+            "type": "switch",
+            "description": "⚡ 共鸣之力：刷新一次「共鸣屋」商品，可能消耗水晶。默认关闭。",
+            "default_case": "No",
+            "cases": [
+                {
+                    "name": "Yes",
+                    "pipeline_override": {
+                        "Presence_Resonance_Gate": { "next": ["Presence_Evaluate"] }
+                    }
+                },
+                {
+                    "name": "No",
+                    "pipeline_override": {
+                        "Presence_Resonance_Gate": { "next": ["Presence_Evaluate"] }
+                    }
+                }
+            ]
+        },
+
+        "体力消耗循环": {
+            "type": "switch",
+            "description": "刷关卡累计消耗体力，一次性完成「千锤百炼 / 勤劳的魔女 / 精益求精」三条。会消耗体力。",
+            "default_case": "Yes",
+            "cases": [
+                {
+                    "name": "Yes",
+                    "pipeline_override": { "Daily_Stamina": { "next": ["Stamina_Entry"] } }
+                },
+                {
+                    "name": "No",
+                    "pipeline_override": { "Daily_Stamina": { "next": ["Daily_Weekly"] } }
+                }
+            ]
+        },
+
+        "体力目标": {
+            "type": "select",
+            "description": "累计消耗体力的目标值。300 可一次完成三条累计任务。",
+            "default_case": "300",
+            "cases": [
+                {
+                    "name": "180",
+                    "pipeline_override": {
+                        "Stamina_Plan": {
+                            "action": {
+                                "param": { "custom_action_param": { "target_stamina": 180 } }
+                            }
                         }
                     }
+                },
+                {
+                    "name": "200",
+                    "pipeline_override": {
+                        "Stamina_Plan": {
+                            "action": {
+                                "param": { "custom_action_param": { "target_stamina": 200 } }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "300",
+                    "pipeline_override": {
+                        "Stamina_Plan": {
+                            "action": {
+                                "param": { "custom_action_param": { "target_stamina": 300 } }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+
+        "每周任务": {
+            "type": "switch",
+            "description": "执行每周存在感任务（满分 550）。",
+            "default_case": "Yes",
+            "cases": [
+                {
+                    "name": "Yes",
+                    "pipeline_override": { "Daily_Weekly": { "next": ["Weekly_Entry"] } }
+                },
+                {
+                    "name": "No",
+                    "pipeline_override": { "Daily_Weekly": { "next": ["Daily_Finish"] } }
                 }
             ]
         }

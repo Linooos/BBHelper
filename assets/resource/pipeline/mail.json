@@ -1,0 +1,65 @@
+{
+    "Mail_Entry": {
+        "doc": "邮件阶段切点。安全红线：邮件页「一键删除」(788,144) 会真实删除邮件，本文件任何节点的 ROI 都不得覆盖 x∈[740,845]。领取节点 ROI 分别锁死在 x∈[1055,1210] 与 x∈[880,1010]，与删除按钮物理隔离。改 ROI 前务必重新核对。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Mail_ClaimAll", "[JumpBack]Nav_GotoMail", "Mail_PhaseDone"],
+        "max_hit": 5
+    },
+
+    "Mail_ClaimAll": {
+        "doc": "一键领取。ROI 锁死在按钮本身，与「一键删除」物理隔离。点击后会弹出「领取成功」窗口。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [1055, 118, 155, 52],
+                "expected": ["一键领取"]
+            }
+        },
+        "action": { "type": "Click", "param": {} },
+        "next": ["Mail_DismissClaimPopup", "Mail_PhaseDone"],
+        "post_delay": 800,
+        "timeout": 3000
+    },
+
+    "Mail_DismissClaimPopup": {
+        "doc": "关闭「领取成功」弹窗。用户实测：该弹窗没有自己的按钮，只能靠点顶部导航关掉。恰好邮件阶段之后本来就要回大厅，所以「点首页」一举两得。若识别失败会直接落到 Mail_PhaseDone，此时下一阶段的 Nav_GotoLobby 也会点首页，可自愈。TODO(待验证)：弹窗文案「领取成功」与 ROI 均未经实机确认（2026-09-18 当时邮件已领完，无法重现）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [400, 250, 480, 220],
+                "expected": ["领取成功"]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": { "target": [656, 72] }
+        },
+        "next": ["Mail_PhaseDone"],
+        "post_delay": 800,
+        "timeout": 3000
+    },
+
+    "Mail_ClaimStamina": {
+        "doc": "体力领取。默认关闭：账号体力长期溢出（1975/204），领取即浪费。放在一键领取之前，避免被「领取成功」弹窗挡住。",
+        "enabled": false,
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [880, 118, 130, 52],
+                "expected": ["体力领取"]
+            }
+        },
+        "action": { "type": "Click", "param": {} },
+        "next": ["[JumpBack]Common_PopupHandle", "Mail_PhaseDone"],
+        "post_delay": 500,
+        "timeout": 3000
+    },
+
+    "Mail_PhaseDone": {
+        "doc": "邮件阶段结束，交给使魔探险阶段。",
+        "recognition": { "type": "DirectHit", "param": {} },
+        "action": { "type": "DoNothing", "param": {} },
+        "next": ["Summon_Entry"]
+    }
+}
