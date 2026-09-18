@@ -452,3 +452,10 @@ tools/ImageCropper/**/*.png
 
 config
 debug
+
+# Everything Maa installer (vendored locally, not tracked)
+.everything-maa/
+
+# Claude Code local config and skills
+.claude/
+.mcp.json
