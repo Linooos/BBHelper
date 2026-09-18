@@ -1,15 +1,150 @@
 {
-    "Battle_Entry": {
-        "doc": "战斗页导航与「快捷战斗」。关键前提：快捷战斗按钮直接秒过结算、不进入战斗流程，因此本项目不需要任何战斗操作逻辑。已侦察路径：战斗页→左侧「活动」标签→右侧可独立滚动列表(x≈755~1240)→「多元裂缝」(倒数第3个)→内部左列「使魔的爱」≈(628,478) / 内部右列「虚轴之庭」→关卡详情页底部「快捷战斗」≈(1035,651)。注意：战斗页右上角那个按钮是面包屑（显示当前目录名，点击回上级），不是功能入口。阶段 4 实现，当前为直通骨架。",
-        "recognition": {"type": "DirectHit", "param": {}},
+    "Battle_ClearCheck": {
+        "doc": "通关判据：文字 + 画面四选一，命中任一即判定战斗结束。实测由「胜利」文字命中（胜利画面只闪很短，但循环轮询抓到了）。战斗循环每轮都会求值本节点。",
+        "recognition": {
+            "type": "Or",
+            "param": {
+                "any_of": [
+                    "Battle_SigSettle",
+                    "Battle_SigVictoryText",
+                    "Battle_SigVictoryFigure"
+                ]
+            }
+        },
         "action": {"type": "DoNothing", "param": {}},
-        "next": ["Battle_PhaseDone"]
+        "next": ["Battle_ReleaseAll"]
     },
 
-    "Battle_PhaseDone": {
-        "doc": "战斗阶段结束。",
-        "recognition": {"type": "DirectHit", "param": {}},
+    "Battle_SigSettle": {
+        "doc": "判据①：结算面板上的「战斗结算」。停留到用户点「确定」为止，是最可靠的一条；但出现得最晚。",
+        "recognition": {
+            "type": "OCR",
+            "param": {"roi": [
+                    540,
+                    110,
+                    220,
+                    50
+                ], "expected": ["战斗结算"]}
+        },
         "action": {"type": "DoNothing", "param": {}},
         "next": []
+    },
+
+    "Battle_SigVictoryText": {
+        "doc": "判据②：胜利画面上的橙色「胜利」二字。**实测就是它命中的**——该画面只闪很短（用户描述「截图窗口较短」），但战斗循环约 1.2s 一轮、每轮都识别，足以抓到。",
+        "recognition": {
+            "type": "OCR",
+            "param": {"roi": [
+                    460,
+                    425,
+                    360,
+                    110
+                ], "expected": ["胜利"]}
+        },
+        "action": {"type": "DoNothing", "param": {}},
+        "next": []
+    },
+
+    "Battle_SigVictoryFigure": {
+        "doc": "判据③：胜利图案本身（有翼发光体）的画面匹配。模板 assets/resource/image/Battle/VictoryFigure.png 裁自实机截图，刻意避开了右边缘的玩家角色与下方文字。⚠️ 裁剪时仍带入了部分关卡背景（围栏/地面），因此**换关卡可能失配**——它只是第三顺位兜底，前两条失手时才轮到它。",
+        "recognition": {
+            "type": "TemplateMatch",
+            "param": {
+                "roi": [
+                    300,
+                    160,
+                    620,
+                    290
+                ],
+                "template": "Battle/VictoryFigure.png",
+                "threshold": 0.7
+            }
+        },
+        "action": {"type": "DoNothing", "param": {}},
+        "next": []
+    },
+
+    "Battle_ReleaseAll": {
+        "doc": "释放双手指。顺序：先松攻击键（contact 1）再松摇杆（contact 0）。通关判据命中后必须立刻执行，否则角色会继续朝一个方向跑。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "TouchUp", "param": {"contact": 1}},
+        "next": ["Battle_ReleaseStick"]
+    },
+
+    "Battle_ReleaseStick": {
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "TouchUp", "param": {"contact": 0}},
+        "next": []
+    },
+
+    "Battle_Fight": {
+        "doc": "关卡内战斗循环（方案 A，适用于「一直向右冲 + 按住主武器」的打法）。前提：已经在关卡内、战斗界面已加载。坐标全部为实测值，不做图案匹配——用户明确要求按钮直接记坐标。战斗结束后停在结算面板，由调用方决定是否点「确定」。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Battle_StickDown"]
+    },
+
+    "Battle_StickDown": {
+        "doc": "按下摇杆。坐标 (173,558) 为实测圆心。⚠️ auto_up: true 必须保留——否则任务中止时手指不会抬起，角色会一直朝一个方向跑。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {
+            "type": "TouchDown",
+            "param": {"target": [
+                    173,
+                    558,
+                    4,
+                    4
+                ], "contact": 0, "auto_up": true}
+        },
+        "next": ["Battle_StickRight"]
+    },
+
+    "Battle_StickRight": {
+        "doc": "推到向右跑的位置 (253,558)，即圆心 +80。按住不放，此后角色持续右移。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {
+            "type": "TouchMove",
+            "param": {"target": [
+                    253,
+                    558,
+                    4,
+                    4
+                ], "contact": 0}
+        },
+        "next": ["Battle_SawDown"]
+    },
+
+    "Battle_SawDown": {
+        "doc": "第二根手指按住电锯键 (993,618)。它是右下三个圆形按钮中「从右往左数第 2 个」。用 contact=1 与摇杆的 contact=0 并存，实测互不干扰。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {
+            "type": "TouchDown",
+            "param": {"target": [
+                    993,
+                    618,
+                    4,
+                    4
+                ], "contact": 1}
+        },
+        "next": ["Battle_FightLoop"]
+    },
+
+    "Battle_FightLoop": {
+        "doc": "战斗循环每一轮的入口：先查通关，未通关则等一会儿再查。整个循环期间两个触点一直按着——「按住」在 MaaFramework 里是持久状态，中间插识别节点不会打断它，所以不需要开线程。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "Battle_ClearCheck",
+            "Battle_FightWait"
+        ],
+        "max_hit": 300
+    },
+
+    "Battle_FightWait": {
+        "doc": "轮询间隔。1.2s 是实测能抓到「胜利」闪屏的节奏（该画面只闪很短）。调太大会漏掉胜利判据、只能等结算面板。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "post_delay": 1200,
+        "next": ["Battle_FightLoop"]
     }
 }

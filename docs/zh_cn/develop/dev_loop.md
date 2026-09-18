@@ -118,7 +118,12 @@ MaaFramework 日志报 `session_.recognition=false`，紧接着 `recognition is 
 
 ```bash
 uv venv && uv pip install MaaFw
+# 开发期额外装 Pillow，用于从实机截图裁剪 TemplateMatch 模板（见下）
+uv pip install Pillow
 ```
+
+> **Pillow 只是开发期工具**：用来把实机截图裁成 `assets/resource/image/` 下的模板图。
+> 它不被 `agent/` 导入，也不进发布产物，所以不影响打包。
 
 > ⚠️ `AgentClient` 的 `identifier` / `connected` / `custom_recognition_list` /
 > `custom_action_list` 都是 **property，不是方法**；`connect()` / `bind()` /
@@ -151,8 +156,24 @@ uv venv && uv pip install MaaFw
 → 落到 `assets/resource/image/<subcategory>/<name>.png`，
 pipeline 里用 `"template": "<subcategory>/<name>.png"` 引用。
 
-> 已入库模板：`Lobby/TaskCenterIcon.png`（大厅左侧任务中心图标，TemplateMatch 实测 score 1.0）。
-> 裁剪时已剔除右上角通知红点，避免红点出现/消失导致失配。
+> 已入库模板：
+> - `Lobby/TaskCenterIcon.png` —— 大厅左侧任务中心图标（实测 score 1.0）。
+>   裁剪时已剔除右上角通知红点，避免红点出现/消失导致失配。
+> - `Battle/VictoryFigure.png` —— 通关的「胜利」图案（兜底判据，见 game_recon.md）。
+>   裁剪时刻意避开右边缘的玩家角色与下方文字。
+
+**从已有的截图文件裁剪**（比如用户手动截的图）：用 venv 里的 Pillow，
+注意 Windows 的 Python 不认 MSYS 风格路径（`/tmp/...`），要传 `D:\...` 这样的原生路径。
+
+```python
+from PIL import Image
+src = Image.open(r"C:\...\某张1280x720的截图.png")
+src.crop((x0, y0, x1, y1)).save(r"D:\...\debug\tpl\name.png")
+```
+
+裁完先 `Read` 出来**视觉确认**，再用 `save_captured_image` 存进资源包。
+裁剪时务必注意：**模板里混进背景或玩家角色 = 换关卡就失配**。
+优先裁「图案自身不透明、且不含角色」的区域。
 
 ---
 
