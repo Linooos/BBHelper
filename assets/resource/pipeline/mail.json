@@ -51,7 +51,11 @@
             }
         },
         "action": { "type": "Click", "param": {} },
-        "next": ["[JumpBack]Common_PopupHandle", "Mail_PhaseDone"],
+        "next": [
+            "[JumpBack]Common_DenyList",
+            "[JumpBack]Common_NoticeConfirm",
+            "Mail_PhaseDone"
+        ],
         "post_delay": 500,
         "timeout": 3000
     },

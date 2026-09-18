@@ -119,6 +119,13 @@ def main() -> int:
     if not tasker.inited:
         raise SystemExit("Tasker 初始化失败")
 
+    # 把 MaaFramework 的详细执行日志落到 debug/（已 gitignore），
+    # 排查 next / [JumpBack] 的实际流转时看这里，比看 detail.nodes 可靠
+    log_dir = ROOT / "debug"
+    log_dir.mkdir(exist_ok=True)
+    tasker.set_log_dir(str(log_dir))
+    log(f"MaaFramework 日志目录：{log_dir}")
+
     # ── 拉起 Agent 子进程并建立会话 ─────────────────────────────
     # cwd 必须是 agent/ 目录：main.py 里用的是顶层模块名 `import my_action`，
     # 依赖脚本所在目录在 sys.path 上。

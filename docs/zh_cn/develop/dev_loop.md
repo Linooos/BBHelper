@@ -156,6 +156,39 @@ pipeline 里用 `"template": "<subcategory>/<name>.png"` 引用。
 
 ---
 
+## 5.5 `next` / `[JumpBack]` 的真实语义 ⚠️ 最容易踩的坑
+
+用最小实验实测得到（`T_A.next=[T_B, T_C]`，`T_B.next=[]`）：
+**`T_B` 命中后 `PipelineTask::run` 直接 leave，`T_C` 根本没跑。** 即
+
+> **`next: []` 的节点 = 「下降」终点，会终止整条任务。**
+
+而 `[JumpBack]X` 是**子程序调用**：X 的链走完后**返回调用方，调用方从头重新求值整个 `next` 列表**。
+
+这条规则解释了本项目遇到过的全部怪现象：
+
+| 现象 | 原因 |
+| --- | --- |
+| `[JumpBack]Common_PopupHandle` 反复执行、靠 `max_hit` 才刹住 | 它内部是 `DirectHit`（恒命中），子程序返回后父节点重新求值，又命中它 → 死循环 |
+| `Summon_DismissReward`（普通成员）→ `Common_NoticeConfirm`（`next: []`）→ 任务突然结束 | 普通成员是「下降」，碰到空 next 就终止；`[JumpBack]` 边界才能「返回」 |
+| `[JumpBack]Nav_GotoLobby` → `Nav_LobbyTab`（`next: []`）却不终止、只是循环 | 它处在 `[JumpBack]` 子程序内，空 next 表示「子程序结束、返回调用方」 |
+
+**由此得到三条硬性写法：**
+
+1. **共享节点（`Common_*`）一律以 `[JumpBack]` 调用**，并且**必须由 OCR 门控**
+   （有弹窗才命中）。不要把 `DirectHit` 包一层再拿出去反复调用。
+2. **节点做完了要继续走，就必须有非空 `next`**。想让它「结束并返回」，
+   就把它作为 `[JumpBack]` 子程序的终点（`next: []`）。
+3. **恒命中的节点（DirectHit）不要放进会被反复求值的 `next` 列表**
+   ——要么加 `max_hit` 兜底，要么改成 OCR 门控，要么用 `[JumpBack]`。
+
+诊断手段：把 MaaFramework 日志目录打开（`tools/dev_run.py` 已经设好，
+日志落在 `debug/maafw.log`），搜
+`recognize_list] [cur_node_=` 与 `reco hit`，就能看到真实的候选列表与命中顺序
+——比看 `TaskDetail.nodes` 可靠得多（后者**包含被尝试但未命中的节点**）。
+
+---
+
 ## 6. 写 pipeline 的几条本项目约定
 
 1. **全部节点用 v2 object 形态**（`recognition: {type, param}` / `action: {type, param}`）。

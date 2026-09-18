@@ -6,16 +6,8 @@
         "next": []
     },
 
-    "Common_PopupHandle": {
-        "doc": "通用弹窗处理。安全约定：Common_DenyList 必须排在 Common_NoticeConfirm 之前——中央 (640,483) 的「确定」既可能是普通提示也可能是消耗确认框，先过黑名单再点确定。",
-        "recognition": { "type": "DirectHit", "param": {} },
-        "action": { "type": "DoNothing", "param": {} },
-        "next": ["Common_DenyList", "Common_NoticeConfirm"],
-        "max_hit": 30
-    },
-
     "Common_DenyList": {
-        "doc": "兜底的兜底：弹窗里出现消耗/破坏性文案就中止整条任务链。词表刻意保持很窄，只拦真正的危险操作，避免误伤正常流程。",
+        "doc": "安全闸：弹窗里出现消耗/破坏性文案就中止整条任务链。词表刻意保持很窄，只拦真正的危险操作，避免误伤正常流程。使用时**直接**放进父节点的 next（不要包一层 DirectHit，见 dev_loop.md「恒命中节点」）。",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -28,16 +20,17 @@
     },
 
     "Common_NoticeConfirm": {
-        "doc": "中央「确定」按钮，常见于提示框。ROI 锁死在按钮本身，不覆盖上方文案区，避免误识别。",
+        "doc": "中央「确定」按钮，用于关闭各种提示框（如使魔探险的「信息提示：体力已经达到上限」）。ROI 锁死在按钮本身，不覆盖上方文案区。⚠️ 该位置既可能是普通提示、也可能是消耗确认框，所以它在父节点 next 里的顺序必须排在 Common_DenyList 之后。max_hit 防止弹窗关不掉时无限循环。",
         "recognition": {
             "type": "OCR",
             "param": {
-                "roi": [556, 448, 168, 70],
+                "roi": [540, 430, 200, 70],
                 "expected": ["确定"]
             }
         },
         "action": { "type": "Click", "param": {} },
         "next": [],
-        "timeout": 1500
+        "timeout": 1500,
+        "max_hit": 20
     }
 }
