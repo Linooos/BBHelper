@@ -78,7 +78,7 @@
         {
             "name": "通用通关（需先停在关卡详情页）",
             "entry": "Battle_ClearStage",
-            "option": ["使用双倍券"]
+            "option": ["刷关次数", "使用双倍券"]
         }
     ],
 
@@ -269,22 +269,42 @@
 
         "使用双倍券": {
             "type": "switch",
-            "description": "⚡ 进入关卡时勾选「使用双倍券」。双倍券是消耗品，默认关闭。已勾选时脚本不会重复点击（避免把它取消掉）。",
+            "description": "⚡ 进入关卡时勾选「使用双倍券」。⚠️ 双倍券是**双倍消耗换双倍奖励**（实测：标称消耗 10 的关卡用了之后扣 20 体力），且是消耗品，所以默认关闭。\n\n开启后**关头关尾都会勾**：关卡详情页的复选框，以及 BONUS 关卡结算界面上的复选框（后者用于「再次挑战」的下一轮）。",
             "default_case": "No",
             "cases": [
                 {
                     "name": "Yes",
                     "pipeline_override": {
-                        "Battle_DoubleTicket_Gate": { "next": ["Battle_UseDoubleTicket"] }
+                        "Battle_ResultTicket": { "enabled": true },
+                        "Battle_DetailTicket": { "enabled": true }
                     }
                 },
                 {
                     "name": "No",
                     "pipeline_override": {
-                        "Battle_DoubleTicket_Gate": { "next": ["Battle_OpenHelperList"] }
+                        "Battle_ResultTicket": { "enabled": false },
+                        "Battle_DetailTicket": { "enabled": false }
                     }
                 }
             ]
+        },
+
+        "刷关次数": {
+            "type": "input",
+            "description": "同一个关卡连续刷几次。1 = 只刷一遍。\n\n刷完最后一轮后脚本会点结算面板的「确定」收尾。\n\n⚠️ 带「再次挑战」按钮的关卡（BONUS）会直接从结算界面续关；普通关卡则要走「确定 → 回关卡列表 → 重新点开关卡」，那条路径依赖 `Battle_PickStage` 里写死的关卡，换关卡时需要一并修改（见该节点 doc）。",
+            "inputs": [
+                {
+                    "name": "次数",
+                    "label": "刷关次数",
+                    "default": "1",
+                    "pipeline_type": "int",
+                    "verify": "^[1-9][0-9]*$",
+                    "pattern_msg": "请填正整数"
+                }
+            ],
+            "pipeline_override": {
+                "Battle_ClearStage_Count": { "max_hit": "{次数}" }
+            }
         }
     }
 }

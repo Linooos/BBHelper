@@ -1,181 +1,434 @@
 {
     "Battle_ClearStage": {
-        "doc": "**通用通关脚本的总入口**。\n\n⚠️ 起点是「**已经选定关卡之后**」，即停在**关卡详情页**（关卡列表 → 点关卡卡片 之后）。\n**本脚本不负责选关** —— 选哪一关由调用方按具体情况决定，选定后再跑这个脚本。\n\n覆盖范围：[双倍券，可选] → 选择助战好友 → 备用装备 → 开战 → 等加载 → 战斗循环 → 通关判据 → 释放双指 → 点结算「确定」。\n\n终点是结算面板的「确定」被点掉、回到关卡列表。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
-        "next": ["Battle_DoubleTicket_Gate"]
+        "doc": "**通用通关脚本的总入口**。\n\n⚠️ 起点是「**已经选定关卡之后**」，即停在**关卡详情页**。选哪一关由调用方决定，选定后再跑这个脚本（不刷关时只跑一遍的用法）。\n\n支持：只刷一遍 / 刷指定次数（`Battle_ClearStage_Loop.max_hit`，由 interface.json 的「刷关次数」覆盖）/ 关头关尾都可用双倍券 / 全部刷完后点「确定」收尾。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Battle_ClearStage_Cycle"
+        ]
     },
-
-    "Battle_DoubleTicket_Gate": {
-        "doc": "双倍券切点。默认**直通**（不使用双倍券）；interface.json 打开「使用双倍券」时会把 Battle_UseDoubleTicket 插进来。双倍券是消耗品，所以默认关闭。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
-        "next": ["Battle_OpenHelperList"]
-    },
-
-    "Battle_UseDoubleTicket": {
-        "doc": "勾选「使用双倍券」。判据用同行的「使用双倍券」文字（顺带确认我们确实在关卡详情页），动作点复选框中心 (1104,547)。\n\n**为什么可以直接无条件点**：实测该复选框在**离开页面再进入后会自动重置为未勾选**（勾上 → 返回关卡列表 → 重新进入 → 又是空框）。所以不存在「把已勾选的取消掉」的风险，不需要做状态检测。\n\n（曾尝试用「已勾选」模板 + inverse 判断状态，但整框模板对未勾选状态的匹配分高达 0.749、超过 0.7 阈值造成误判；而框内只有对勾笔画不同、裁剪区分度差。既然状态会重置，这条路就整条省掉了。）\n\n位置参考：复选框中心 (1104,547)；「使用双倍券」文字 x 855~940；票券图标 x 980~1010；数量「x 99」x 1025~1060。",
+    "Battle_ClearStage_Finish": {
+        "doc": "全部刷完后收尾：点结算面板的「确定」，离开结算界面。\n\n走到这里说明循环已经跑完最后一轮的战斗，且**最后一轮结束后不会再点「再次挑战」**（因为 Round 不会再被调度），所以此时停在结算面板上。",
         "recognition": {
             "type": "OCR",
-            "param": {"roi": [
+            "param": {
+                "roi": [
+                    740,
+                    590,
+                    180,
+                    60
+                ],
+                "expected": [
+                    "确定"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [],
+        "post_delay": 1200,
+        "timeout": 30000
+    },
+    "Battle_ClearStage_Round": {
+        "doc": "一轮。**所有分支拍平在同一个 next 列表里**，按优先级顺序尝试；候选失配就顺延到下一个。\n\n⚠️ 不要用「Gate 节点 + next: [子节点]」做条件分支：实测算出——**一个节点命中后下降进去，若它的 next 候选全部失败，整条任务会报错终止**，并不会返回父节点继续试别的。只有同一个 next 列表内的候选失配才会顺延。恒命中的节点串起来做切点没问题（本项目其它 Gate 都是这么用的），但后面挂了可能失配的节点就会炸。所以开关一律用 `enabled`，分支一律拍平。\n\n按「当前停在哪个界面」分支：\n- **结算界面**（上一轮刚打完）→ 按需勾结算界面的双倍券 → 「再次挑战」续关（BONUS 关走这条）；没有「再次挑战」就点「确定」回关卡列表\n- **关卡列表** → 点关卡卡片回详情页\n- **关卡详情页** → 按需勾详情页双倍券 → 选择助战好友\n- **助战好友列表** → 直接选备用装备（「再次挑战」会落在这里）\n\n之后统一走：备用装备 → 开战 → 等加载 → 战斗。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Battle_ResultTicket",
+            "Battle_Again",
+            "Battle_Confirm",
+            "Battle_PickStage",
+            "Battle_DetailTicket",
+            "Battle_OpenHelperList",
+            "Battle_PickHelper"
+        ]
+    },
+    "Battle_ResultTicket": {
+        "doc": "勾选**结算界面**上的双倍券（BONUS 关卡才有）。\n\n判据用**票券图标的模板匹配**——这一处的双倍券**没有文字标签**，只有「票券图标 + x 数量 + 复选框」，所以不能像详情页那样用 OCR「使用双倍券」来判。模板裁自实机截图，背景暗、图标特征明显。\n\n坐标：票券图标 x 554~616、数量「x 95」x 618~668、**复选框中心 (706,550)**。\n⚠️ 与详情页的复选框 (1104,547) 位置完全不同，两者不会互相误判。\n\nnext 直接接 Battle_Again（而不是回到 Round）：避免勾完票券后 Round 重新求值又命中本节点、把刚勾上的票券又点掉。",
+        "recognition": {
+            "type": "TemplateMatch",
+            "param": {
+                "roi": [
+                    540,
+                    505,
+                    200,
+                    80
+                ],
+                "template": "Battle/ResultTicketIcon.png",
+                "threshold": 0.8
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    706,
+                    550,
+                    6,
+                    6
+                ]
+            }
+        },
+        "next": [
+            "Battle_Again",
+            "Battle_Confirm"
+        ],
+        "post_delay": 600,
+        "timeout": 2500,
+        "enabled": false
+    },
+    "Battle_Again": {
+        "doc": "点结算面板的「再次挑战」(642,618)。\n\n⚠️ 实测它**不是直接开打**，而是回到**助战好友列表**——省掉的是「确定 → 回关卡列表 → 重新点开关卡 → 详情页」这几步（也就省掉了详情页那次双倍券勾选），但「备用装备 → 开战」还要重走。所以 next 接 Battle_PickHelper。\n\nBONUS 关卡才有这个按钮。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    560,
+                    595,
+                    210,
+                    55
+                ],
+                "expected": [
+                    "再次挑战"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Battle_PickHelper"
+        ],
+        "post_delay": 1500,
+        "timeout": 3000
+    },
+    "Battle_Confirm": {
+        "doc": "点结算面板的「确定」(825,618)，回到关卡列表（没有「再次挑战」的普通关卡走这条）。next 接选关节点，为下一轮重新打开这一关。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    740,
+                    590,
+                    180,
+                    60
+                ],
+                "expected": [
+                    "确定"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Battle_PickStage"
+        ],
+        "post_delay": 1200,
+        "timeout": 3000
+    },
+    "Battle_PickStage": {
+        "doc": "在关卡列表里点开目标关卡，回到详情页。\n\n⚠️ **仅用于「刷指定次数」时重新打开同一关**——只刷一遍（或每次都靠「再次挑战」续关的 BONUS 关）根本不会走到这里，所以不影响「基础脚本不负责首次选关」的定位：**首次选关仍然由调用方决定**，这里只是重复刷时把同一关再打开一次。\n\n换关卡时改这三处：ROI、expected 文字、点击坐标。当前固定为**曜日挑战 → 喵王の福利**（卡片中心 (628,285)；名字在卡片上方，点名字不一定能打开关卡）。\n\n⚠️ ROI 的 y 范围（205~250）刻意与详情页标题（y≈125~155）错开，在详情页上不会误命中。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    540,
+                    205,
+                    180,
+                    45
+                ],
+                "expected": [
+                    "喵王の福利"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    628,
+                    285,
+                    20,
+                    20
+                ]
+            }
+        },
+        "next": [
+            "Battle_DetailTicket",
+            "Battle_OpenHelperList",
+            "Battle_PickHelper"
+        ],
+        "post_delay": 1200,
+        "timeout": 3000
+    },
+    "Battle_DetailTicket": {
+        "doc": "勾选**关卡详情页**上的「使用双倍券」复选框 (1104,547)。判据用同行文字「使用双倍券」（顺带确认确实在详情页）。\n\n**为什么可以直接无条件点**：实测该复选框在**离开页面再进入后会自动重置为未勾选**，所以不存在「把已勾选的取消掉」的风险，不需要状态检测。\n\n（曾试过「已勾选」模板 + inverse 判断状态，但整框模板对未勾选状态的匹配分高达 0.749、超过 0.7 阈值造成误判，既然状态会重置就整条省掉了。）\n\n⚠️ 双倍券是**双倍消耗换双倍奖励**（实测：标称消耗 10 的关卡用了双倍券扣 20 体力），所以默认关闭，由用户显式开启。\n\n位置参考：复选框中心 (1104,547)；文字 x 855~940；票券图标 x 980~1010；数量 x 1025~1060。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
                     835,
                     512,
                     130,
                     55
-                ], "expected": ["使用双倍券"]}
+                ],
+                "expected": [
+                    "使用双倍券"
+                ]
+            }
         },
         "action": {
             "type": "Click",
-            "param": {"target": [
+            "param": {
+                "target": [
                     1104,
                     547,
                     6,
                     6
-                ]}
+                ]
+            }
         },
-        "next": ["Battle_OpenHelperList"],
+        "next": [
+            "Battle_OpenHelperList",
+            "Battle_PickHelper"
+        ],
         "post_delay": 600,
-        "timeout": 2500
+        "timeout": 2500,
+        "enabled": false
     },
-
     "Battle_OpenHelperList": {
         "doc": "点关卡详情页底部的「选择助战好友」，打开助战列表。该页只有这一个按钮（不像「使魔的爱」那关还有「快捷战斗」）。",
         "recognition": {
             "type": "OCR",
-            "param": {"roi": [
+            "param": {
+                "roi": [
                     620,
                     625,
                     300,
                     60
-                ], "expected": ["选择助战好友"]}
+                ],
+                "expected": [
+                    "选择助战好友"
+                ]
+            }
         },
-        "action": {"type": "Click", "param": {}},
-        "next": ["Battle_PickHelper"],
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Battle_PickHelper"
+        ],
         "post_delay": 1000,
         "timeout": 3000
     },
-
     "Battle_PickHelper": {
         "doc": "在助战列表里选「备用装备」（默认项，实测一直高亮在列表第一位）。选中后会进入助战加成说明页，那里才有「开战」。",
         "recognition": {
             "type": "OCR",
-            "param": {"roi": [
+            "param": {
+                "roi": [
                     330,
                     200,
                     350,
                     110
-                ], "expected": ["备用装备"]}
+                ],
+                "expected": [
+                    "备用装备"
+                ]
+            }
         },
-        "action": {"type": "Click", "param": {}},
-        "next": ["Battle_StartBattle"],
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Battle_StartBattle"
+        ],
         "post_delay": 1000,
         "timeout": 3000
     },
-
     "Battle_StartBattle": {
         "doc": "点助战说明页的「开战」。⚠️ 这一步会**真实消耗体力**（喵王の福利 为 10 点），且不可撤销。\n\n⚠️ timeout 设 45s 而不是默认：**`timeout` 是「本节点等它的 next 候选命中」的时间预算**，不是本节点自己的识别超时。这里等的是关卡加载完（Battle_WaitLoaded 要 OCR 到战斗界面的 HP）。设成 3s 时实测报 `Task timeout [pretask.name=Battle_StartBattle] [reco_timeout=3000ms]` 直接放弃，而 Battle_WaitLoaded 自己的 timeout 根本轮不到生效。",
         "recognition": {
             "type": "OCR",
-            "param": {"roi": [
+            "param": {
+                "roi": [
                     720,
                     630,
                     220,
                     65
-                ], "expected": ["开战"]}
+                ],
+                "expected": [
+                    "开战"
+                ]
+            }
         },
-        "action": {"type": "Click", "param": {}},
-        "next": ["Battle_WaitLoaded"],
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Battle_WaitLoaded"
+        ],
         "post_delay": 2000,
         "timeout": 45000
     },
-
     "Battle_WaitLoaded": {
         "doc": "等战斗界面加载完再开始操作。判据用左上角的「HP」字样——它只在战斗界面出现，比盲目延时可靠。",
         "recognition": {
             "type": "OCR",
-            "param": {"roi": [
+            "param": {
+                "roi": [
                     0,
                     0,
                     320,
                     60
-                ], "expected": ["HP"]}
+                ],
+                "expected": [
+                    "HP"
+                ]
+            }
         },
-        "action": {"type": "DoNothing", "param": {}},
-        "next": ["Battle_Fight"],
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Battle_Fight"
+        ],
         "timeout": 30000
     },
-
     "Battle_Fight": {
         "doc": "战斗循环（方案 A：「一直向右冲 + 按住主武器」）。坐标全部为实测值，不做图案匹配——用户明确要求按钮直接记坐标。战斗结束后会点掉结算面板的「确定」，回到关卡列表。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
-        "next": ["Battle_StickDown"]
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Battle_StickDown"
+        ]
     },
-
     "Battle_StickDown": {
         "doc": "按下摇杆的「向右」位置。⚠️ 不要按圆心再移动：实机圆心量得 (169,553)，早先误用 (173,558)（y 偏低 5px ≈ 行程半径的 9%）会越过死区，导致角色**开局先向下漂一段**。且该摇杆是固定式的（静止时外圈就画在屏幕上），所以直接按在偏移位即可，第一帧就是纯水平。行程半径约 55px，这里偏移 +80。⚠️ auto_up 必须 true，否则任务中止时手指不抬起，角色会一直朝一个方向跑。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "TouchDown",
-            "param": {"target": [
+            "param": {
+                "target": [
                     249,
                     553,
                     4,
                     4
-                ], "contact": 0, "auto_up": true}
+                ],
+                "contact": 0,
+                "auto_up": true
+            }
         },
-        "next": ["Battle_StickRight"]
+        "next": [
+            "Battle_StickRight"
+        ]
     },
-
     "Battle_StickRight": {
         "doc": "补一次极小的位移，确保摇杆方向事件被游戏收到（部分游戏只在 move 时更新方向）。仍保持向右，偏移量从 +80 变为 +86。此后不再有摇杆动作，触点一直按着。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "TouchMove",
-            "param": {"target": [
+            "param": {
+                "target": [
                     255,
                     553,
                     4,
                     4
-                ], "contact": 0}
+                ],
+                "contact": 0
+            }
         },
-        "next": ["Battle_SawDown"]
+        "next": [
+            "Battle_SawDown"
+        ]
     },
-
     "Battle_SawDown": {
-        "doc": "第二根手指按住电锯键 (993,618)。它是右下三个圆形按钮中「从右往左数第 2 个」。用 contact=1 与摇杆的 contact=0 并存，实测互不干扰。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "doc": "第二根手指按住电锯键 (993,618)。它是右下三个圆形按钮中「从右往左数第 2 个」。用 contact=1 与摇杆的 contact=0 并存，实测互不干扰。\n\n⚠️ `auto_up: true` 必须保留：任务被强杀（如外部 kill）时不会自动抬起触点，角色会一直举着武器。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "TouchDown",
-            "param": {"target": [
+            "param": {
+                "target": [
                     993,
                     618,
                     4,
                     4
-                ], "contact": 1}
+                ],
+                "contact": 1,
+                "auto_up": true
+            }
         },
-        "next": ["Battle_FightLoop"]
+        "next": [
+            "Battle_FightLoop"
+        ]
     },
-
     "Battle_FightLoop": {
         "doc": "战斗循环每一轮的入口：先查通关，未通关则等一会儿再查。整个循环期间两个触点一直按着——「按住」在 MaaFramework 里是持久状态，中间插识别节点不会打断它，所以不需要开线程。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "Battle_ClearCheck",
             "Battle_FightWait"
         ],
         "max_hit": 300
     },
-
     "Battle_FightWait": {
         "doc": "轮询间隔。1.2s 是实测能抓到「胜利」闪屏的节奏（该画面只闪很短）。调太大会漏掉胜利判据、只能等结算面板。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "post_delay": 1200,
-        "next": ["Battle_FightLoop"]
+        "next": [
+            "Battle_FightLoop"
+        ]
     },
-
     "Battle_ClearCheck": {
         "doc": "通关判据：文字 + 画面三选一，命中任一即判定战斗结束。实测由「胜利」文字命中。命中后立刻释放双手指。",
         "recognition": {
@@ -188,40 +441,58 @@
                 ]
             }
         },
-        "action": {"type": "DoNothing", "param": {}},
-        "next": ["Battle_ReleaseAll"]
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Battle_ReleaseAll"
+        ]
     },
-
     "Battle_SigSettle": {
         "doc": "判据①：结算面板上的「战斗结算」。停留到用户点「确定」为止，是最可靠的一条；但出现得最晚。",
         "recognition": {
             "type": "OCR",
-            "param": {"roi": [
+            "param": {
+                "roi": [
                     540,
                     110,
                     220,
                     50
-                ], "expected": ["战斗结算"]}
+                ],
+                "expected": [
+                    "战斗结算"
+                ]
+            }
         },
-        "action": {"type": "DoNothing", "param": {}},
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": []
     },
-
     "Battle_SigVictoryText": {
         "doc": "判据②：胜利画面上的橙色「胜利」二字。**实测就是它命中的**——该画面只闪很短（用户描述「截图窗口较短」），但战斗循环约 1.2s 一轮、每轮都识别，足以抓到。",
         "recognition": {
             "type": "OCR",
-            "param": {"roi": [
+            "param": {
+                "roi": [
                     460,
                     425,
                     360,
                     110
-                ], "expected": ["胜利"]}
+                ],
+                "expected": [
+                    "胜利"
+                ]
+            }
         },
-        "action": {"type": "DoNothing", "param": {}},
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": []
     },
-
     "Battle_SigVictoryFigure": {
         "doc": "判据③：胜利图案本身（有翼发光体）的画面匹配。模板 assets/resource/image/Battle/VictoryFigure.png 裁自实机截图，刻意避开了右边缘的玩家角色与下方文字。⚠️ 裁剪时仍带入了部分关卡背景，因此**换关卡可能失配**——它只是第三顺位兜底，前两条失手时才轮到它。",
         "recognition": {
@@ -237,56 +508,127 @@
                 "threshold": 0.7
             }
         },
-        "action": {"type": "DoNothing", "param": {}},
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": []
     },
-
     "Battle_ReleaseAll": {
         "doc": "释放双手指。顺序：先松攻击键（contact 1）再松摇杆（contact 0）。通关判据命中后必须立刻执行，否则角色会继续朝一个方向跑。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "TouchUp", "param": {"contact": 1}},
-        "next": ["Battle_ReleaseStick"]
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "TouchUp",
+            "param": {
+                "contact": 1
+            }
+        },
+        "next": [
+            "Battle_ReleaseStick"
+        ]
     },
-
     "Battle_ReleaseStick": {
         "doc": "松开摇杆，然后去等结算面板出现。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "TouchUp", "param": {"contact": 0}},
-        "next": ["Battle_SettleLoop"]
-    },
-
-    "Battle_SettleLoop": {
-        "doc": "等结算面板出现并点「确定」。胜利画面之后还要播一段动画才出结算面板，所以这里也要轮询等；用「确定」按钮作为判据，确保面板真的出来了才点，避免空点。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "TouchUp",
+            "param": {
+                "contact": 0
+            }
+        },
         "next": [
-            "Battle_SettleConfirm",
+            "Battle_SettleLoop"
+        ]
+    },
+    "Battle_SettleLoop": {
+        "doc": "等结算面板出现。胜利画面之后还要播一段动画才出结算面板，所以这里要轮询等。**判据用「确定」按钮**（面板出现才会有的控件），命中即认为战斗已结算完毕。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Battle_SettleDetect",
             "Battle_SettleTick"
         ],
         "max_hit": 30
     },
-
-    "Battle_SettleConfirm": {
-        "doc": "点结算面板的「确定」(825,613)，关闭面板回到关卡列表。",
+    "Battle_SettleDetect": {
+        "doc": "结算面板已出现——**只检测不点击**。基础通关脚本到这一步就结束一轮，交还给 Battle_ClearStage_Cycle 决定是再来一轮还是收尾。\n\n为什么要这样拆：普通结算的「确定」之外，带 **BONUS** 标题的关卡还会给出「再次挑战」和「双倍卡」选项。基础脚本只负责「打到结算出现」，之后按什么由刷关层决定，两种关卡才能复用同一个战斗脚本。",
         "recognition": {
             "type": "OCR",
-            "param": {"roi": [
+            "param": {
+                "roi": [
                     740,
                     585,
                     180,
                     60
-                ], "expected": ["确定"]}
+                ],
+                "expected": [
+                    "确定"
+                ]
+            }
         },
-        "action": {"type": "Click", "param": {}},
-        "next": [],
-        "post_delay": 1200,
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Battle_ClearStage_Cycle"
+        ],
         "timeout": 2000
     },
-
     "Battle_SettleTick": {
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "post_delay": 1000,
-        "next": ["Battle_SettleLoop"]
+        "next": [
+            "Battle_SettleLoop"
+        ]
+    },
+    "Battle_ClearStage_Count": {
+        "doc": "刷关计数器。`max_hit` 就是刷的次数，由 interface.json 的「刷关次数」覆盖。\n\n⚠️ **必须用普通 `next` 引用它，不能用 `[JumpBack]`**：实测 `[JumpBack]X` 返回时是**直接重新进入 X**，不会重新求值调用方的识别，所以挂在调用方身上的 `max_hit` 永远停在 1、循环永不终止（踩过，导致脚本无限刷关）。\n\n正确做法：让每轮干完活后**用普通 next 回到 ClearStage_Cycle**，Cycle 重新求值候选列表时本节点才会再命中一次、计数才累加。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Battle_ClearStage_Round"
+        ],
+        "max_hit": 1
+    },
+    "Battle_ClearStage_Cycle": {
+        "doc": "计数与收尾的汇合点。每轮干完活都回到这里重新求值：计数器还能命中就再来一轮，计数器 max_hit 用尽后落到 Finish 收尾。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Battle_ClearStage_Count",
+            "Battle_ClearStage_Finish"
+        ]
     }
 }

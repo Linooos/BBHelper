@@ -295,6 +295,58 @@ tr -cd '\11\12\15\40-\176\200-\377' < debug/maafw.log \
 tr -cd '\11\12\15\40-\176\200-\377' < debug/maafw.log | grep "OCRer::analyze"
 ```
 
+### 5.9 两条会「炸整条链」的语义 ⚠️⚠️
+
+这两条都是实机踩出来的，代价是一次失控刷关。
+
+**① `[JumpBack]X` 返回时是「直接重新进入 X」，不会重新求值调用方的识别**
+
+所以**挂在调用方身上的 `max_hit` 永远不会累加**：
+
+```jsonc
+"Loop": {                                    // ❌ 永远停在 1 次
+    "next": ["[JumpBack]Round"],
+    "max_hit": 2                             // 想刷 2 次，实际无限刷
+}
+```
+
+日志证据：整轮跑完 `Loop` 只命中 1 次、`Finish` 命中 0 次，脚本无限循环刷关。
+
+**要做计数循环，必须让每轮干完活用普通 `next` 回到一个「汇合点」**，
+汇合点重新求值候选列表时计数器才会再命中一次：
+
+```jsonc
+"Cycle": { "next": ["Count", "Finish"] },    // ✅ 汇合点
+"Count": { "next": ["Round"], "max_hit": 2 } // max_hit 正常累加
+// 每轮链的末尾： "SettleDetect": { "next": ["Cycle"] }
+```
+
+**② 一个节点命中后下降进去，若它的 `next` 候选全部失败 → 整条任务报错终止**
+
+不是「返回父节点继续试别的」。日志报
+`Task timeout [pretask.name=X]` + `invalid node id, handle error`。
+
+```jsonc
+"Gate": { "next": ["Sub"] }      // ❌ Sub 一旦失配，整条任务炸
+```
+
+**只有同一个 `next` 列表内**的候选失配才会顺延——所以要**把条件分支拍平到一个列表里**：
+
+```jsonc
+"Round": {
+    "next": ["ResultTicket", "Again", "Confirm", "PickStage", "DetailTicket", "OpenHelper", "PickHelper"]
+    // 用 enabled 开关，而不是 Gate 节点 + next:[子节点]
+}
+```
+
+> 本项目其它地方的 `*_Gate` 之所以没事，是因为它们链上**全是恒命中的 `DirectHit`**。
+> 一旦后面挂了会失配的节点，就会炸。**归纳：Gate 只适合串恒命中节点；带条件的
+> 分支一律拍平 + `enabled`。**
+
+**③ 附带教训**：`TouchDown` 的 `auto_up` 默认 `false`。任务被外部强杀（`taskkill`）
+时不会自动抬手指。所有 `TouchDown` 都要显式 `auto_up: true`，否则会留下一个
+一直按着的触点（角色举着武器不动）。
+
 ---
 
 ## 6. 写 pipeline 的几条本项目约定
