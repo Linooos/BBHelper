@@ -251,6 +251,52 @@ Daily_CleanUp → Mail_Entry → Mail_Loop → Mail_PhaseDone
 
 ---
 
+### 5.7 `timeout` 是「父节点等 next 命中」的预算 ⚠️
+
+这条很容易误读。`timeout` **不是**「本节点自己的识别超时」，而是
+**「本节点在放弃之前，愿意花多久等它的 `next` 候选命中」**。
+
+踩坑现场：进关卡时
+
+```jsonc
+"Battle_StartBattle": {          // 点「开战」
+    "next": ["Battle_WaitLoaded"],
+    "timeout": 3000              // ← 以为「3 秒内识别不到就重试」，其实是「3 秒后放弃」
+}
+"Battle_WaitLoaded": {           // 等战斗界面加载完
+    "timeout": 30000             // ← 根本轮不到生效
+}
+```
+
+日志报 `Task timeout [pretask.name=Battle_StartBattle] [reco_timeout=3000ms]`，
+而关卡加载要十几秒 → 整条链直接放弃。
+
+**规则**：如果某个节点的 `next` 要等一个**慢事件**（关卡加载、页面切换、弹窗出现），
+**必须把 `timeout` 设在那条链的父节点上，且覆盖慢事件的完整耗时**。
+
+### 5.8 读日志定位问题比猜快得多
+
+本次三个问题全是靠 `debug/maafw.log` 一行定位的：
+
+| 现象 | 日志关键行 |
+| --- | --- |
+| 摇杆开局向下漂 | （靠坐标复测 + 准星对比发现 y 偏 5px） |
+| 双倍券没点上 | `TemplateMatcher::analyze best_result_={"score":0.748974}` → 模板对「未勾选」误匹配超阈值 |
+| 进关卡后卡住 | `Task timeout [pretask.name=Battle_StartBattle] [reco_timeout=3000ms]` |
+
+常用过滤：
+
+```bash
+# 真实命中顺序
+tr -cd '\11\12\15\40-\176\200-\377' < debug/maafw.log \
+  | grep -aoE "reco hit \[result.name=[A-Za-z_0-9]+" | sed 's/.*name=//' | uniq
+
+# 某节点的识别详情
+tr -cd '\11\12\15\40-\176\200-\377' < debug/maafw.log | grep "OCRer::analyze"
+```
+
+---
+
 ## 6. 写 pipeline 的几条本项目约定
 
 1. **全部节点用 v2 object 形态**（`recognition: {type, param}` / `action: {type, param}`）。

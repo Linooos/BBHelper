@@ -1,6 +1,183 @@
 {
+    "Battle_EnterFromDetail": {
+        "doc": "进入关卡的入口。**前提：已经停在某个关卡的详情页**（关卡列表 → 点关卡卡片 之后）。阶段顺序：双倍券(可选) → 选择助战好友 → 备用装备 → 开战 → 等加载 → 战斗。所选关卡由调用方负责导航，本模块不关心是哪个关卡。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Battle_DoubleTicket_Gate"]
+    },
+
+    "Battle_DoubleTicket_Gate": {
+        "doc": "双倍券切点。默认**直通**（不使用双倍券）；interface.json 打开「使用双倍券」时会把 Battle_UseDoubleTicket 插进来。双倍券是消耗品，所以默认关闭。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Battle_OpenHelperList"]
+    },
+
+    "Battle_UseDoubleTicket": {
+        "doc": "勾选「使用双倍券」。判据用同行的「使用双倍券」文字（顺带确认我们确实在关卡详情页），动作点复选框中心 (1104,547)。\n\n**为什么可以直接无条件点**：实测该复选框在**离开页面再进入后会自动重置为未勾选**（勾上 → 返回关卡列表 → 重新进入 → 又是空框）。所以不存在「把已勾选的取消掉」的风险，不需要做状态检测。\n\n（曾尝试用「已勾选」模板 + inverse 判断状态，但整框模板对未勾选状态的匹配分高达 0.749、超过 0.7 阈值造成误判；而框内只有对勾笔画不同、裁剪区分度差。既然状态会重置，这条路就整条省掉了。）\n\n位置参考：复选框中心 (1104,547)；「使用双倍券」文字 x 855~940；票券图标 x 980~1010；数量「x 99」x 1025~1060。",
+        "recognition": {
+            "type": "OCR",
+            "param": {"roi": [
+                    835,
+                    512,
+                    130,
+                    55
+                ], "expected": ["使用双倍券"]}
+        },
+        "action": {
+            "type": "Click",
+            "param": {"target": [
+                    1104,
+                    547,
+                    6,
+                    6
+                ]}
+        },
+        "next": ["Battle_OpenHelperList"],
+        "post_delay": 600,
+        "timeout": 2500
+    },
+
+    "Battle_OpenHelperList": {
+        "doc": "点关卡详情页底部的「选择助战好友」，打开助战列表。该页只有这一个按钮（不像「使魔的爱」那关还有「快捷战斗」）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {"roi": [
+                    620,
+                    625,
+                    300,
+                    60
+                ], "expected": ["选择助战好友"]}
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": ["Battle_PickHelper"],
+        "post_delay": 1000,
+        "timeout": 3000
+    },
+
+    "Battle_PickHelper": {
+        "doc": "在助战列表里选「备用装备」（默认项，实测一直高亮在列表第一位）。选中后会进入助战加成说明页，那里才有「开战」。",
+        "recognition": {
+            "type": "OCR",
+            "param": {"roi": [
+                    330,
+                    200,
+                    350,
+                    110
+                ], "expected": ["备用装备"]}
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": ["Battle_StartBattle"],
+        "post_delay": 1000,
+        "timeout": 3000
+    },
+
+    "Battle_StartBattle": {
+        "doc": "点助战说明页的「开战」。⚠️ 这一步会**真实消耗体力**（喵王の福利 为 10 点），且不可撤销。\n\n⚠️ timeout 设 45s 而不是默认：**`timeout` 是「本节点等它的 next 候选命中」的时间预算**，不是本节点自己的识别超时。这里等的是关卡加载完（Battle_WaitLoaded 要 OCR 到战斗界面的 HP）。设成 3s 时实测报 `Task timeout [pretask.name=Battle_StartBattle] [reco_timeout=3000ms]` 直接放弃，而 Battle_WaitLoaded 自己的 timeout 根本轮不到生效。",
+        "recognition": {
+            "type": "OCR",
+            "param": {"roi": [
+                    720,
+                    630,
+                    220,
+                    65
+                ], "expected": ["开战"]}
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": ["Battle_WaitLoaded"],
+        "post_delay": 2000,
+        "timeout": 45000
+    },
+
+    "Battle_WaitLoaded": {
+        "doc": "等战斗界面加载完再开始操作。判据用左上角的「HP」字样——它只在战斗界面出现，比盲目延时可靠。",
+        "recognition": {
+            "type": "OCR",
+            "param": {"roi": [
+                    0,
+                    0,
+                    320,
+                    60
+                ], "expected": ["HP"]}
+        },
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Battle_Fight"],
+        "timeout": 30000
+    },
+
+    "Battle_Fight": {
+        "doc": "战斗循环（方案 A：「一直向右冲 + 按住主武器」）。坐标全部为实测值，不做图案匹配——用户明确要求按钮直接记坐标。战斗结束后会点掉结算面板的「确定」，回到关卡列表。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Battle_StickDown"]
+    },
+
+    "Battle_StickDown": {
+        "doc": "按下摇杆的「向右」位置。⚠️ 不要按圆心再移动：实机圆心量得 (169,553)，早先误用 (173,558)（y 偏低 5px ≈ 行程半径的 9%）会越过死区，导致角色**开局先向下漂一段**。且该摇杆是固定式的（静止时外圈就画在屏幕上），所以直接按在偏移位即可，第一帧就是纯水平。行程半径约 55px，这里偏移 +80。⚠️ auto_up 必须 true，否则任务中止时手指不抬起，角色会一直朝一个方向跑。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {
+            "type": "TouchDown",
+            "param": {"target": [
+                    249,
+                    553,
+                    4,
+                    4
+                ], "contact": 0, "auto_up": true}
+        },
+        "next": ["Battle_StickRight"]
+    },
+
+    "Battle_StickRight": {
+        "doc": "补一次极小的位移，确保摇杆方向事件被游戏收到（部分游戏只在 move 时更新方向）。仍保持向右，偏移量从 +80 变为 +86。此后不再有摇杆动作，触点一直按着。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {
+            "type": "TouchMove",
+            "param": {"target": [
+                    255,
+                    553,
+                    4,
+                    4
+                ], "contact": 0}
+        },
+        "next": ["Battle_SawDown"]
+    },
+
+    "Battle_SawDown": {
+        "doc": "第二根手指按住电锯键 (993,618)。它是右下三个圆形按钮中「从右往左数第 2 个」。用 contact=1 与摇杆的 contact=0 并存，实测互不干扰。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {
+            "type": "TouchDown",
+            "param": {"target": [
+                    993,
+                    618,
+                    4,
+                    4
+                ], "contact": 1}
+        },
+        "next": ["Battle_FightLoop"]
+    },
+
+    "Battle_FightLoop": {
+        "doc": "战斗循环每一轮的入口：先查通关，未通关则等一会儿再查。整个循环期间两个触点一直按着——「按住」在 MaaFramework 里是持久状态，中间插识别节点不会打断它，所以不需要开线程。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "Battle_ClearCheck",
+            "Battle_FightWait"
+        ],
+        "max_hit": 300
+    },
+
+    "Battle_FightWait": {
+        "doc": "轮询间隔。1.2s 是实测能抓到「胜利」闪屏的节奏（该画面只闪很短）。调太大会漏掉胜利判据、只能等结算面板。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "post_delay": 1200,
+        "next": ["Battle_FightLoop"]
+    },
+
     "Battle_ClearCheck": {
-        "doc": "通关判据：文字 + 画面四选一，命中任一即判定战斗结束。实测由「胜利」文字命中（胜利画面只闪很短，但循环轮询抓到了）。战斗循环每轮都会求值本节点。",
+        "doc": "通关判据：文字 + 画面三选一，命中任一即判定战斗结束。实测由「胜利」文字命中。命中后立刻释放双手指。",
         "recognition": {
             "type": "Or",
             "param": {
@@ -46,7 +223,7 @@
     },
 
     "Battle_SigVictoryFigure": {
-        "doc": "判据③：胜利图案本身（有翼发光体）的画面匹配。模板 assets/resource/image/Battle/VictoryFigure.png 裁自实机截图，刻意避开了右边缘的玩家角色与下方文字。⚠️ 裁剪时仍带入了部分关卡背景（围栏/地面），因此**换关卡可能失配**——它只是第三顺位兜底，前两条失手时才轮到它。",
+        "doc": "判据③：胜利图案本身（有翼发光体）的画面匹配。模板 assets/resource/image/Battle/VictoryFigure.png 裁自实机截图，刻意避开了右边缘的玩家角色与下方文字。⚠️ 裁剪时仍带入了部分关卡背景，因此**换关卡可能失配**——它只是第三顺位兜底，前两条失手时才轮到它。",
         "recognition": {
             "type": "TemplateMatch",
             "param": {
@@ -72,79 +249,44 @@
     },
 
     "Battle_ReleaseStick": {
+        "doc": "松开摇杆，然后去等结算面板出现。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "TouchUp", "param": {"contact": 0}},
-        "next": []
+        "next": ["Battle_SettleLoop"]
     },
 
-    "Battle_Fight": {
-        "doc": "关卡内战斗循环（方案 A，适用于「一直向右冲 + 按住主武器」的打法）。前提：已经在关卡内、战斗界面已加载。坐标全部为实测值，不做图案匹配——用户明确要求按钮直接记坐标。战斗结束后停在结算面板，由调用方决定是否点「确定」。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
-        "next": ["Battle_StickDown"]
-    },
-
-    "Battle_StickDown": {
-        "doc": "按下摇杆。坐标 (173,558) 为实测圆心。⚠️ auto_up: true 必须保留——否则任务中止时手指不会抬起，角色会一直朝一个方向跑。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {
-            "type": "TouchDown",
-            "param": {"target": [
-                    173,
-                    558,
-                    4,
-                    4
-                ], "contact": 0, "auto_up": true}
-        },
-        "next": ["Battle_StickRight"]
-    },
-
-    "Battle_StickRight": {
-        "doc": "推到向右跑的位置 (253,558)，即圆心 +80。按住不放，此后角色持续右移。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {
-            "type": "TouchMove",
-            "param": {"target": [
-                    253,
-                    558,
-                    4,
-                    4
-                ], "contact": 0}
-        },
-        "next": ["Battle_SawDown"]
-    },
-
-    "Battle_SawDown": {
-        "doc": "第二根手指按住电锯键 (993,618)。它是右下三个圆形按钮中「从右往左数第 2 个」。用 contact=1 与摇杆的 contact=0 并存，实测互不干扰。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {
-            "type": "TouchDown",
-            "param": {"target": [
-                    993,
-                    618,
-                    4,
-                    4
-                ], "contact": 1}
-        },
-        "next": ["Battle_FightLoop"]
-    },
-
-    "Battle_FightLoop": {
-        "doc": "战斗循环每一轮的入口：先查通关，未通关则等一会儿再查。整个循环期间两个触点一直按着——「按住」在 MaaFramework 里是持久状态，中间插识别节点不会打断它，所以不需要开线程。",
+    "Battle_SettleLoop": {
+        "doc": "等结算面板出现并点「确定」。胜利画面之后还要播一段动画才出结算面板，所以这里也要轮询等；用「确定」按钮作为判据，确保面板真的出来了才点，避免空点。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
         "next": [
-            "Battle_ClearCheck",
-            "Battle_FightWait"
+            "Battle_SettleConfirm",
+            "Battle_SettleTick"
         ],
-        "max_hit": 300
+        "max_hit": 30
     },
 
-    "Battle_FightWait": {
-        "doc": "轮询间隔。1.2s 是实测能抓到「胜利」闪屏的节奏（该画面只闪很短）。调太大会漏掉胜利判据、只能等结算面板。",
+    "Battle_SettleConfirm": {
+        "doc": "点结算面板的「确定」(825,613)，关闭面板回到关卡列表。",
+        "recognition": {
+            "type": "OCR",
+            "param": {"roi": [
+                    740,
+                    585,
+                    180,
+                    60
+                ], "expected": ["确定"]}
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": [],
+        "post_delay": 1200,
+        "timeout": 2000
+    },
+
+    "Battle_SettleTick": {
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
-        "post_delay": 1200,
-        "next": ["Battle_FightLoop"]
+        "post_delay": 1000,
+        "next": ["Battle_SettleLoop"]
     }
 }

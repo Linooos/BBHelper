@@ -74,6 +74,11 @@
         {
             "name": "启动游戏并回大厅",
             "entry": "App_Launch"
+        },
+        {
+            "name": "关卡战斗（需先停在关卡详情页）",
+            "entry": "Battle_EnterFromDetail",
+            "option": ["使用双倍券"]
         }
     ],
 
@@ -258,6 +263,26 @@
                 {
                     "name": "No",
                     "pipeline_override": { "Daily_Weekly": { "next": ["Daily_Finish"] } }
+                }
+            ]
+        },
+
+        "使用双倍券": {
+            "type": "switch",
+            "description": "⚡ 进入关卡时勾选「使用双倍券」。双倍券是消耗品，默认关闭。已勾选时脚本不会重复点击（避免把它取消掉）。",
+            "default_case": "No",
+            "cases": [
+                {
+                    "name": "Yes",
+                    "pipeline_override": {
+                        "Battle_DoubleTicket_Gate": { "next": ["Battle_UseDoubleTicket"] }
+                    }
+                },
+                {
+                    "name": "No",
+                    "pipeline_override": {
+                        "Battle_DoubleTicket_Gate": { "next": ["Battle_OpenHelperList"] }
+                    }
                 }
             ]
         }
