@@ -1,62 +1,126 @@
 {
     "Summon_Entry": {
-        "doc": "使魔探险阶段。入口：任务中心 → 左侧「使魔探险」标签。每日任务「星辰的彼方：派遣或收回一次使魔探险」——领取已完成的探险即算「收回」，所以本阶段只需领取。TODO：把已接取数（N/10）补满的「接取新探险」流程尚未实现。注意领取会消耗已接取数（实测 8/10 → 7/10 → 6/10 → 5/10）。",
-        "recognition": { "type": "DirectHit", "param": {} },
-        "action": { "type": "DoNothing", "param": {} },
+        "doc": "使魔探险阶段入口。本阶段的活干完后 Summon_Claim 不再命中，所以导航绝不能是 [JumpBack]（会让入口无限空转、耗尽 max_hit 后任务散架——实测踩过）。这里用「先试活、不中再走线性导航」的结构：导航是一条下降链，每步 next 指向下一步，最后一步落进 Summon_Loop。每日任务「星辰的彼方：派遣或收回一次使魔探险」——领取已完成的探险即算「收回」。TODO：把已接取数（N/10）补满的「接取新探险」流程尚未实现。注意领取会消耗已接取数（实测 8/10 → 4/10）。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
         "next": [
-            "[JumpBack]Common_DenyList",
-            "[JumpBack]Common_NoticeConfirm",
             "Summon_Claim",
-            "[JumpBack]Nav_GotoSummon",
-            "Summon_Settle"
-        ],
-        "max_hit": 40
+            "Summon_Nav"
+        ]
     },
 
-    "Summon_Claim": {
-        "doc": "领取一条已完成的探险。列表里每个「探索完成」的条目右侧都有「点击领取奖励」，OCR 会同时命中多条，MaaFramework 取最优的一条点击；外层 Summon_Entry 会重复调度直到没有可领的条目。ROI 覆盖整个右侧按钮列（列表可滚动，留了较大纵向余量）。",
+    "Summon_Nav": {
+        "doc": "线性导航链的起点。顶部标签在任何页面都可见，所以「点首页」从哪儿都能回大厅；回到大厅后任务中心图标必然可匹配。因此不需要降级分支，一条直线即可。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Summon_Nav01Lobby"]
+    },
+
+    "Summon_Nav01Lobby": {
+        "doc": "导航第 1 步：点顶部「首页」回大厅。",
         "recognition": {
             "type": "OCR",
             "param": {
-                "roi": [900, 200, 340, 460],
+                "roi": [
+                    600,
+                    40,
+                    680,
+                    70
+                ],
+                "expected": ["首页"]
+            }
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": ["Summon_Nav02TaskCenter"],
+        "post_delay": 900,
+        "timeout": 2500
+    },
+
+    "Summon_Nav02TaskCenter": {
+        "doc": "导航第 2 步：点大厅左侧任务中心图标（无文字，TemplateMatch）。",
+        "recognition": {
+            "type": "TemplateMatch",
+            "param": {
+                "roi": [
+                    0,
+                    130,
+                    120,
+                    100
+                ],
+                "template": "Lobby/TaskCenterIcon.png",
+                "threshold": 0.7
+            }
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": ["Summon_Nav03Tab"],
+        "post_delay": 900,
+        "timeout": 2500
+    },
+
+    "Summon_Nav03Tab": {
+        "doc": "导航第 3 步：切到任务中心左侧的「使魔探险」标签，然后进入循环体。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    10,
+                    200,
+                    130,
+                    290
+                ],
+                "expected": ["使魔探险"]
+            }
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": ["Summon_Loop"],
+        "post_delay": 900,
+        "timeout": 2500
+    },
+
+    "Summon_Loop": {
+        "doc": "循环体：每轮先清弹窗，再领一条。列表里每个「探索完成」的条目右侧都有「点击领取奖励」，OCR 会同时命中多条，MaaFramework 取最优的一条点击。ROI 覆盖整个右侧按钮列（列表可滚动，留了较大纵向余量）。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "[JumpBack]Common_TapToDismiss",
+            "[JumpBack]Common_DenyList",
+            "[JumpBack]Common_NoticeConfirm",
+            "Summon_Claim",
+            "Summon_Settle"
+        ],
+        "max_hit": 30
+    },
+
+    "Summon_Claim": {
+        "doc": "领取一条已完成的探险，然后回到 Summon_Loop 继续下一轮。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    900,
+                    200,
+                    340,
+                    460
+                ],
                 "expected": ["点击领取奖励"]
             }
         },
-        "action": { "type": "Click", "param": {} },
+        "action": {"type": "Click", "param": {}},
         "next": [
-            "[JumpBack]Summon_DismissReward",
+            "[JumpBack]Common_TapToDismiss",
             "[JumpBack]Common_DenyList",
             "[JumpBack]Common_NoticeConfirm",
-            "Summon_Entry"
+            "Summon_Loop"
         ],
         "post_delay": 800,
         "timeout": 3000,
         "max_hit": 15
     },
 
-    "Summon_DismissReward": {
-        "doc": "关闭「获得奖励」弹窗。实测该弹窗没有按钮，是一层铺满全屏的遮罩，点屏幕任意位置即关闭；不关掉下一条「点击领取奖励」就点不到。这里点右下角空白处，该点击会被遮罩吃掉，不会误触下层控件。⚠️ 必须由调用方以 [JumpBack] 调用：本节点 next 为空，若作为普通 next 成员被「下降」到这里会直接终止整条任务。",
-        "recognition": {
-            "type": "OCR",
-            "param": {
-                "roi": [450, 190, 400, 90],
-                "expected": ["获得奖励"]
-            }
-        },
-        "action": {
-            "type": "Click",
-            "param": { "target": [1230, 660] }
-        },
-        "next": [],
-        "post_delay": 600,
-        "timeout": 1500,
-        "max_hit": 15
-    },
-
     "Summon_Settle": {
         "doc": "收尾清扫：最后一条奖励领取后，领体力触发的「信息提示」可能晚于上一步的检查窗口才弹出，导致本阶段结束时留着一个弹窗挡住后续阶段。这里在退出前再扫一遍。",
-        "recognition": { "type": "DirectHit", "param": {} },
-        "action": { "type": "DoNothing", "param": {} },
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
         "next": [
             "[JumpBack]Common_DenyList",
             "[JumpBack]Common_NoticeConfirm",
@@ -66,8 +130,8 @@
 
     "Summon_PhaseDone": {
         "doc": "使魔探险阶段结束，交给存在感阶段。",
-        "recognition": { "type": "DirectHit", "param": {} },
-        "action": { "type": "DoNothing", "param": {} },
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
         "next": ["Presence_Entry"]
     }
 }

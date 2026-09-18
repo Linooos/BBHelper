@@ -1,17 +1,17 @@
 {
     "Daily_CleanUp": {
         "doc": "总入口。阶段顺序：Mail → Summon → Presence → Stamina → Weekly → Finish。不需要额外的「回大厅」阶段：每个阶段的导航链自己会从任意页面把游戏带回目标页（Nav_GotoXxx 逐级降级）。",
-        "recognition": { "type": "DirectHit", "param": {} },
-        "action": { "type": "DoNothing", "param": {} },
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
         "next": ["Mail_Entry"]
     },
 
     "App_Launch": {
         "doc": "启动游戏并进入日常流程。",
-        "recognition": { "type": "DirectHit", "param": {} },
+        "recognition": {"type": "DirectHit", "param": {}},
         "action": {
             "type": "StartApp",
-            "param": { "package": "com.miHoYo.HSoDv2Original" }
+            "param": {"package": "com.miHoYo.HSoDv2Original"}
         },
         "next": ["Mail_Entry"],
         "post_delay": 3000
@@ -19,22 +19,25 @@
 
     "Daily_Stamina": {
         "doc": "体力消耗循环的切点。Yes→Stamina_Entry（其后 Stamina_PhaseDone 会接 Daily_Weekly）；No→直接 Daily_Weekly。",
-        "recognition": { "type": "DirectHit", "param": {} },
-        "action": { "type": "DoNothing", "param": {} },
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
         "next": ["Stamina_Entry"]
     },
 
     "Daily_Weekly": {
         "doc": "每周任务的切点。Yes→Weekly_Entry；No→直接 Daily_Finish。",
-        "recognition": { "type": "DirectHit", "param": {} },
-        "action": { "type": "DoNothing", "param": {} },
-        "next": ["Weekly_Entry", "Daily_Finish"]
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "Weekly_Entry",
+            "Daily_Finish"
+        ]
     },
 
     "Daily_Finish": {
         "doc": "终点。",
-        "recognition": { "type": "DirectHit", "param": {} },
-        "action": { "type": "DoNothing", "param": {} },
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
         "next": []
     }
 }

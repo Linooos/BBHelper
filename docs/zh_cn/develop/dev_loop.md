@@ -187,6 +187,47 @@ pipeline 里用 `"template": "<subcategory>/<name>.png"` 引用。
 `recognize_list] [cur_node_=` 与 `reco hit`，就能看到真实的候选列表与命中顺序
 ——比看 `TaskDetail.nodes` 可靠得多（后者**包含被尝试但未命中的节点**）。
 
+### 5.6 跨页导航：用「线性下降链」，**不要**用 `[JumpBack]` 降级链 ⚠️
+
+早期版本把导航写成「链式降级」的 `[JumpBack]` 子程序
+（`Nav_GotoMail → Nav_GotoSocial → Nav_GotoLobby`），结果**反复空转**：
+子程序返回后调用方从头重新求值，又命中同一个导航节点，如此往复，
+最后把 `max_hit` 耗尽、任务直接散架（`status: failed`）。
+
+正确做法基于一个简单事实：
+
+> **顶部六个标签（首页/战斗/装备/商店/社交/其他）在任何页面都可见。**
+
+所以「点首页」从哪儿都能回大厅；回到大厅后任务中心图标必然可匹配。
+也就是说**根本不需要降级分支**——一条直线就够了，每步的 `next` 指向下一步：
+
+```
+<Phase>_Entry.next = ["<Phase>_Work", "<Phase>_Nav"]     # 先试活，已在目标页就直接干
+<Phase>_Nav:          DirectHit → next: ["<Phase>_Nav01Lobby"]
+<Phase>_Nav01Lobby:   OCR「首页」→ Click → next: ["<Phase>_Nav02TaskCenter"]
+<Phase>_Nav02TaskCenter: TemplateMatch 图标 → Click → next: ["<Phase>_Nav03Tab"]
+<Phase>_Nav03Tab:     OCR 目标标签 → Click → next: ["<Phase>_Loop"]
+```
+
+要点：
+1. **每一步的 `next` 都必须非空**（空 next 是「下降」终点，会终止整条任务）。
+2. **导航只在阶段入口走一次**，循环体（`<Phase>_Loop`）里绝不放导航节点，
+   否则「活干完了、识别不到」时会把导航反复重跑。
+3. **导航节点按阶段复制**，不共享。共享的导航点击节点要求静态 `next`，
+   而它的下一步是阶段相关的——共享会逼你回到 `[JumpBack]` 的老路。
+4. 恒命中的按钮（顶部标签、常驻的「一键领取」等）**必须限 `max_hit`**：
+   OCR 读得到文字 ≠ 按钮可点（置灰也读得到），不限次就会死循环。
+
+改完之后整个日常流程的命中轨迹变成**每个节点恰好一次、零空转**：
+
+```
+Daily_CleanUp → Mail_Entry → Mail_Loop → Mail_PhaseDone
+→ Summon_Entry → Summon_Nav(+3步) → Summon_Loop → Summon_Settle → Summon_PhaseDone
+→ Presence_Entry → Presence_Nav(+3步) → Presence_Loop → Presence_ClaimMilestone
+→ …三个 Gate… → Presence_PhaseDone
+→ Daily_Stamina → … → Daily_Finish
+```
+
 ---
 
 ## 6. 写 pipeline 的几条本项目约定

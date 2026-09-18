@@ -1,9 +1,39 @@
 {
     "Common_OcrBase": {
         "doc": "OCR 基座节点。自身不带 roi/expected，仅供 CustomRecognition 通过 context.run_recognition 临时覆盖参数使用，不参与主流程。",
-        "recognition": { "type": "OCR", "param": {} },
-        "action": { "type": "DoNothing", "param": {} },
+        "recognition": {"type": "OCR", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
         "next": []
+    },
+
+    "Common_TapToDismiss": {
+        "doc": "关闭「点空白处关闭」型的奖励弹窗。实测有两种，都没有按钮、点任意位置关闭：使魔探险领取后的「获得奖励」，以及存在感里程碑领取后的「已领取以下奖励」（后者正文直接写着「（点击空白处关闭）」）。两者标题位置不同，用一个覆盖两者的纵向 ROI。点击点选在两个弹窗都空白的区域，避免误触下层页面控件。⚠️ 必须由调用方以 [JumpBack] 调用（本节点 next 为空，作为普通 next 成员「下降」到这里会终止整条任务）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    420,
+                    110,
+                    450,
+                    170
+                ],
+                "expected": [
+                    "获得奖励",
+                    "已领取以下奖励"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {"target": [
+                    640,
+                    445
+                ]}
+        },
+        "next": [],
+        "post_delay": 600,
+        "timeout": 1500,
+        "max_hit": 15
     },
 
     "Common_DenyList": {
@@ -11,11 +41,23 @@
         "recognition": {
             "type": "OCR",
             "param": {
-                "roi": [340, 180, 600, 360],
-                "expected": ["删除", "消耗水晶", "确认购买", "立即购买", "确认花费", "确认消耗"]
+                "roi": [
+                    340,
+                    180,
+                    600,
+                    360
+                ],
+                "expected": [
+                    "删除",
+                    "消耗水晶",
+                    "确认购买",
+                    "立即购买",
+                    "确认花费",
+                    "确认消耗"
+                ]
             }
         },
-        "action": { "type": "StopTask", "param": {} },
+        "action": {"type": "StopTask", "param": {}},
         "timeout": 1500
     },
 
@@ -24,11 +66,16 @@
         "recognition": {
             "type": "OCR",
             "param": {
-                "roi": [540, 430, 200, 70],
+                "roi": [
+                    540,
+                    430,
+                    200,
+                    70
+                ],
                 "expected": ["确定"]
             }
         },
-        "action": { "type": "Click", "param": {} },
+        "action": {"type": "Click", "param": {}},
         "next": [],
         "timeout": 1500,
         "max_hit": 20

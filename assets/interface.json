@@ -87,7 +87,7 @@
                     "name": "Yes",
                     "pipeline_override": {
                         "Mail_Entry": {
-                            "next": ["Mail_ClaimAll", "[JumpBack]Nav_GotoMail", "Mail_PhaseDone"]
+                            "next": ["Mail_Loop", "Mail_Nav"]
                         }
                     }
                 },
