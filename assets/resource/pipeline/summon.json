@@ -1,21 +1,33 @@
 {
     "Summon_Entry": {
-        "doc": "使魔探险阶段入口。本阶段的活干完后 Summon_Claim 不再命中，所以导航绝不能是 [JumpBack]（会让入口无限空转、耗尽 max_hit 后任务散架——实测踩过）。这里用「先试活、不中再走线性导航」的结构：导航是一条下降链，每步 next 指向下一步，最后一步落进 Summon_Loop。每日任务「星辰的彼方：派遣或收回一次使魔探险」——领取已完成的探险即算「收回」。TODO：把已接取数（N/10）补满的「接取新探险」流程尚未实现。注意领取会消耗已接取数（实测 8/10 → 4/10）。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "doc": "使魔探险阶段入口。本阶段的活干完后 Summon_Claim 不再命中，所以导航绝不能是 [JumpBack]（会让入口无限空转、耗尽 max_hit 后任务散架——实测踩过）。这里用「先试活、不中再走线性导航」的结构：导航是一条下降链，每步 next 指向下一步，最后一步落进 Summon_Loop。每日任务「星辰的彼方：派遣或收回一次使魔探险」——领取已完成的探险即算「收回」。接取新探险由 Summon_Accept_* 三步流水线完成，见下。注意领取会消耗已接取数（实测 8/10 → 4/10）。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "Summon_Claim",
             "Summon_Nav"
         ]
     },
-
     "Summon_Nav": {
         "doc": "线性导航链的起点。顶部标签在任何页面都可见，所以「点首页」从哪儿都能回大厅；回到大厅后任务中心图标必然可匹配。因此不需要降级分支，一条直线即可。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
-        "next": ["Summon_Nav01Lobby"]
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Summon_Nav01Lobby"
+        ]
     },
-
     "Summon_Nav01Lobby": {
         "doc": "导航第 1 步：点顶部「首页」回大厅。",
         "recognition": {
@@ -27,15 +39,21 @@
                     680,
                     70
                 ],
-                "expected": ["首页"]
+                "expected": [
+                    "首页"
+                ]
             }
         },
-        "action": {"type": "Click", "param": {}},
-        "next": ["Summon_Nav02TaskCenter"],
-        "post_delay": 900,
-        "timeout": 2500
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Summon_Nav02TaskCenter"
+        ],
+        "post_delay": 1200,
+        "timeout": 4000
     },
-
     "Summon_Nav02TaskCenter": {
         "doc": "导航第 2 步：点大厅左侧任务中心图标（无文字，TemplateMatch）。",
         "recognition": {
@@ -51,12 +69,16 @@
                 "threshold": 0.7
             }
         },
-        "action": {"type": "Click", "param": {}},
-        "next": ["Summon_Nav03Tab"],
-        "post_delay": 900,
-        "timeout": 2500
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Summon_Nav03Tab"
+        ],
+        "post_delay": 1200,
+        "timeout": 4000
     },
-
     "Summon_Nav03Tab": {
         "doc": "导航第 3 步：切到任务中心左侧的「使魔探险」标签，然后进入循环体。",
         "recognition": {
@@ -68,29 +90,41 @@
                     130,
                     290
                 ],
-                "expected": ["使魔探险"]
+                "expected": [
+                    "使魔探险"
+                ]
             }
         },
-        "action": {"type": "Click", "param": {}},
-        "next": ["Summon_Loop"],
-        "post_delay": 900,
-        "timeout": 2500
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Summon_Loop"
+        ],
+        "post_delay": 1200,
+        "timeout": 4000
     },
-
     "Summon_Loop": {
         "doc": "循环体：每轮先清弹窗，再领一条。列表里每个「探索完成」的条目右侧都有「点击领取奖励」，OCR 会同时命中多条，MaaFramework 取最优的一条点击。ROI 覆盖整个右侧按钮列（列表可滚动，留了较大纵向余量）。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "[JumpBack]Common_TapToDismiss",
             "[JumpBack]Common_DenyList",
             "[JumpBack]Common_NoticeConfirm",
             "Summon_Claim",
+            "Summon_Accept_Click",
             "Summon_Settle"
         ],
-        "max_hit": 30
+        "max_hit": 40
     },
-
     "Summon_Claim": {
         "doc": "领取一条已完成的探险，然后回到 Summon_Loop 继续下一轮。",
         "recognition": {
@@ -102,10 +136,15 @@
                     340,
                     460
                 ],
-                "expected": ["点击领取奖励"]
+                "expected": [
+                    "点击领取奖励"
+                ]
             }
         },
-        "action": {"type": "Click", "param": {}},
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
         "next": [
             "[JumpBack]Common_TapToDismiss",
             "[JumpBack]Common_DenyList",
@@ -116,22 +155,122 @@
         "timeout": 3000,
         "max_hit": 15
     },
-
+    "Summon_Accept_Click": {
+        "doc": "接取新探险第 1 步：点某条待接取条目右侧的「点击选择使魔」，打开使魔编队界面。列表里可能同时有多条匹配，MaaFramework 取最优的一条；外层 Summon_Loop 会一直重复直到一条都匹配不到（用户实测：条目会随接取不断上浮，所以不需要滚动）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    950,
+                    220,
+                    200,
+                    460
+                ],
+                "expected": [
+                    "点击选择使魔"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Summon_Accept_AutoAssign",
+            "[JumpBack]Common_NoticeConfirm",
+            "Summon_Loop"
+        ],
+        "post_delay": 900,
+        "timeout": 2500,
+        "max_hit": 12
+    },
+    "Summon_Accept_AutoAssign": {
+        "doc": "接取新探险第 2 步：点「一键派遣」自动配齐使魔。实测成功率从 0.00% 跳到 100.00%，特性槽与四个使魔槽全部填满。不做这一步直接点「出发」成功率是 0，不应出发。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    700,
+                    600,
+                    260,
+                    70
+                ],
+                "expected": [
+                    "一键派遣"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Summon_Accept_Depart",
+            "[JumpBack]Common_TapToDismiss",
+            "Summon_Loop"
+        ],
+        "post_delay": 900,
+        "timeout": 2500,
+        "max_hit": 12
+    },
+    "Summon_Accept_Depart": {
+        "doc": "接取新探险第 3 步：点「出发」正式派出，界面返回列表，然后回到循环体接取下一条。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    960,
+                    600,
+                    210,
+                    70
+                ],
+                "expected": [
+                    "出发"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_TapToDismiss",
+            "[JumpBack]Common_DenyList",
+            "[JumpBack]Common_NoticeConfirm",
+            "Summon_Loop"
+        ],
+        "post_delay": 900,
+        "timeout": 2500,
+        "max_hit": 12
+    },
     "Summon_Settle": {
         "doc": "收尾清扫：最后一条奖励领取后，领体力触发的「信息提示」可能晚于上一步的检查窗口才弹出，导致本阶段结束时留着一个弹窗挡住后续阶段。这里在退出前再扫一遍。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "[JumpBack]Common_DenyList",
             "[JumpBack]Common_NoticeConfirm",
             "Summon_PhaseDone"
         ]
     },
-
     "Summon_PhaseDone": {
         "doc": "使魔探险阶段结束，交给存在感阶段。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
-        "next": ["Presence_Entry"]
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Presence_Entry"
+        ]
     }
 }

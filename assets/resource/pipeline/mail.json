@@ -1,21 +1,33 @@
 {
     "Mail_Entry": {
         "doc": "邮件阶段入口。先试活（已在邮件页则直接领），不中再走线性导航链。⚠️ 安全红线：邮件页「一键删除」(788,144) 会真实删除邮件，本文件任何节点的 ROI 都不得覆盖 x∈[740,845]。领取节点 ROI 分别锁死在 x∈[1055,1210] 与 x∈[880,1010]，与删除按钮物理隔离。改 ROI 前务必重新核对。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "Mail_Loop",
             "Mail_Nav"
         ]
     },
-
     "Mail_Nav": {
         "doc": "线性导航链起点。顶部「社交」标签在任何页面都可见，所以一条直线即可。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
-        "next": ["Mail_Nav01Social"]
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Mail_Nav01Social"
+        ]
     },
-
     "Mail_Nav01Social": {
         "doc": "导航第 1 步：点顶部「社交」标签。",
         "recognition": {
@@ -27,15 +39,21 @@
                     680,
                     70
                 ],
-                "expected": ["社交"]
+                "expected": [
+                    "社交"
+                ]
             }
         },
-        "action": {"type": "Click", "param": {}},
-        "next": ["Mail_Nav02MailEntry"],
-        "post_delay": 900,
-        "timeout": 2500
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Mail_Nav02MailEntry"
+        ],
+        "post_delay": 1200,
+        "timeout": 4000
     },
-
     "Mail_Nav02MailEntry": {
         "doc": "导航第 2 步：点社交页的「我的消息」（即邮件），进入循环体。",
         "recognition": {
@@ -47,19 +65,31 @@
                     240,
                     62
                 ],
-                "expected": ["我的消息"]
+                "expected": [
+                    "我的消息"
+                ]
             }
         },
-        "action": {"type": "Click", "param": {}},
-        "next": ["Mail_Loop"],
-        "post_delay": 900,
-        "timeout": 2500
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Mail_Loop"
+        ],
+        "post_delay": 1200,
+        "timeout": 4000
     },
-
     "Mail_Loop": {
         "doc": "循环体。Mail_ClaimAll 的 max_hit 为 1：一键领取按钮常驻（无可领时置灰），OCR 依然读得到文字，若不限次会一直命中导致死循环。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "[JumpBack]Common_TapToDismiss",
             "[JumpBack]Common_DenyList",
@@ -70,7 +100,6 @@
         ],
         "max_hit": 5
     },
-
     "Mail_ClaimAll": {
         "doc": "一键领取。ROI 锁死在按钮本身，与「一键删除」物理隔离。点击后会弹出「领取成功」窗口。",
         "recognition": {
@@ -82,10 +111,15 @@
                     155,
                     52
                 ],
-                "expected": ["一键领取"]
+                "expected": [
+                    "一键领取"
+                ]
             }
         },
-        "action": {"type": "Click", "param": {}},
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
         "next": [
             "Mail_DismissClaimPopup",
             "Mail_Loop"
@@ -94,7 +128,6 @@
         "timeout": 2500,
         "max_hit": 1
     },
-
     "Mail_DismissClaimPopup": {
         "doc": "关闭「领取成功」弹窗。用户实测：该弹窗没有自己的按钮，只能靠点顶部导航关掉。TODO(待验证)：弹窗文案「领取成功」与 ROI 均未经实机确认（2026-09-18 当时邮件已领完，无法重现）。识别失败会落到 Mail_Loop，此时下一阶段的导航链第 1 步也会点「首页」，可自愈。",
         "recognition": {
@@ -106,21 +139,26 @@
                     480,
                     220
                 ],
-                "expected": ["领取成功"]
+                "expected": [
+                    "领取成功"
+                ]
             }
         },
         "action": {
             "type": "Click",
-            "param": {"target": [
+            "param": {
+                "target": [
                     656,
                     72
-                ]}
+                ]
+            }
         },
-        "next": ["Mail_Loop"],
+        "next": [
+            "Mail_Loop"
+        ],
         "post_delay": 800,
         "timeout": 2000
     },
-
     "Mail_ClaimStamina": {
         "doc": "体力领取。默认关闭：账号体力长期溢出（实测已到 2050/204），领取即浪费。",
         "enabled": false,
@@ -133,10 +171,15 @@
                     130,
                     52
                 ],
-                "expected": ["体力领取"]
+                "expected": [
+                    "体力领取"
+                ]
             }
         },
-        "action": {"type": "Click", "param": {}},
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
         "next": [
             "[JumpBack]Common_DenyList",
             "[JumpBack]Common_NoticeConfirm",
@@ -146,11 +189,18 @@
         "timeout": 2500,
         "max_hit": 1
     },
-
     "Mail_PhaseDone": {
         "doc": "邮件阶段结束，交给使魔探险阶段。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
-        "next": ["Summon_Entry"]
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Summon_Entry"
+        ]
     }
 }
