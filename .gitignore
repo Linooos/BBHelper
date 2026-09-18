@@ -459,3 +459,5 @@ debug
 # Claude Code local config and skills
 .claude/
 .mcp.json
+# Python venv (project-local, dev only)
+.venv/
