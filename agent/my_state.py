@@ -97,3 +97,16 @@ class PhaseBegin(_PhaseAction):
 @AgentServer.custom_action("phase_end")
 class PhaseEnd(_PhaseAction):
     STATUS = "done"
+
+
+@AgentServer.custom_action("phase_skip")
+class PhaseSkip(_PhaseAction):
+    """阶段**走到了但没做成** —— 和 done 区分开。
+
+    典型场景：世界那么大要打虚轴之庭，但「快捷战斗」按钮是灰的（未解锁），
+    只能跳过。这时候记 done 会让人误以为游戏里做完了，所以单独一个状态。
+
+    判读时：skipped = 流程正常、但这一步没产生实际效果。
+    """
+
+    STATUS = "skipped"

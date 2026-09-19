@@ -7,7 +7,10 @@
 
 判读
 ----
-    done      跑完了
+    done      跑完了（**游戏里真的做成了**）
+    skipped   流程走到了，但**这一步没产生实际效果** —— 最典型的是「世界那么大」：
+              要打虚轴之庭，但「快捷战斗」按钮是灰的（未解锁 20 亿伤害），只能跳过。
+              它**不等于完成了**，别被 done 和它搞混。
     started   进去了但没出来 —— **中途失败/卡死的阶段就是它**
     （空白）   没跑到，或者界面开关关着被跳过了
 
@@ -60,7 +63,11 @@ def main() -> int:
             print(f"  {name:<8} {'—':<10} （未跑到 / 已跳过）")
             continue
         status = rec.get("status", "?")
-        flag = "  ← 未完成" if status == "started" else ""
+        flag = ""
+        if status == "started":
+            flag = "  ← 未完成（中途失败）"
+        elif status == "skipped":
+            flag = "  ← 跳过，游戏里没做成"
         print(f"  {name:<8} {status:<10} {rec.get('at', '')}{flag}")
 
     # 记录里出现但不在 PHASES 里的（比如以后加了新阶段忘了登记）
@@ -78,7 +85,12 @@ def main() -> int:
         return 2
 
     done = [n for n in PHASES if phases.get(n, {}).get("status") == "done"]
-    print(f"全部有记录的阶段都跑完了（{len(done)} 个）")
+    skipped = [n for n in PHASES if phases.get(n, {}).get("status") == "skipped"]
+    print(f"跑完 {len(done)} 个阶段", end="")
+    if skipped:
+        print(f"，其中 {len(skipped)} 个是**跳过的、游戏里没做成**：" + "、".join(skipped))
+    else:
+        print()
     return 0
 
 

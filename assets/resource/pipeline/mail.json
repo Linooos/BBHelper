@@ -9,7 +9,9 @@
             "type": "Custom",
             "param": {
                 "custom_action": "phase_begin",
-                "custom_action_param": {"phase": "邮件"}
+                "custom_action_param": {
+                    "phase": "邮件"
+                }
             }
         },
         "next": [
@@ -32,7 +34,7 @@
         ]
     },
     "Mail_Nav01Social": {
-        "doc": "导航第 1 步：点顶部「社交」标签。",
+        "doc": "导航第 1 步：点顶部「社交」标签。\n\n⚠️ 末尾挂 Mail_Nav_Fail：以前只写一个候选，失配会让整条任务报错。",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -52,13 +54,14 @@
             "param": {}
         },
         "next": [
-            "Mail_Nav02MailEntry"
+            "Mail_Nav02MailEntry",
+            "Mail_Nav_Fail"
         ],
         "post_delay": 1200,
         "timeout": 4000
     },
     "Mail_Nav02MailEntry": {
-        "doc": "导航第 2 步：点社交页的「我的消息」（即邮件），进入循环体。",
+        "doc": "导航第 2 步：点社交页的「我的消息」（即邮件），进入循环体。\n\n⚠️ 点完「我的消息」页面不一定立刻切好，接到 Mail_Nav03Retry 去重试。",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -78,7 +81,8 @@
             "param": {}
         },
         "next": [
-            "Mail_Loop"
+            "Mail_Nav03Retry",
+            "Mail_Nav_Fail"
         ],
         "post_delay": 1200,
         "timeout": 4000
@@ -199,11 +203,59 @@
             "type": "Custom",
             "param": {
                 "custom_action": "phase_end",
-                "custom_action_param": {"phase": "邮件"}
+                "custom_action_param": {
+                    "phase": "邮件"
+                }
             }
         },
         "next": [
             "Daily_Summon"
+        ]
+    },
+    "Mail_Nav03Retry": {
+        "doc": "邮件 导航的**重试汇合点**。\n\n实测点完上一步之后页面不一定会立刻切好，直接咬死一个候选会失配。\n给它 3 次机会（1.2s 间隔），还不行才回退去重点一次。\n\nnext 第二个候选是回退分支，保证它永不空手而归。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Mail_Loop",
+            "Mail_Nav03Reclick"
+        ],
+        "post_delay": 1200,
+        "max_hit": 3
+    },
+    "Mail_Nav03Reclick": {
+        "doc": "重试分支：回退重新点一次「我的消息」，然后回到重试汇合点。\n\n⚠️ 只被 Retry 求值，而 Retry 的 max_hit 是 3 —— 整个回退循环最多 3 轮就有刹车。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Mail_Nav02MailEntry",
+            "Mail_Nav_Fail"
+        ]
+    },
+    "Mail_Nav_Fail": {
+        "doc": "邮件 导航的**放弃点**。\n\n导航没走通时不报错、不终止 —— 平静交给 Mail_PhaseDone，让日常继续往下跑。\n这一次没做到，下次跑还会再试；总比整条任务挂掉好。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Mail_PhaseDone"
         ]
     }
 }

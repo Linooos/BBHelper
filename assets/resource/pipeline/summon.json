@@ -9,7 +9,9 @@
             "type": "Custom",
             "param": {
                 "custom_action": "phase_begin",
-                "custom_action_param": {"phase": "使魔探险"}
+                "custom_action_param": {
+                    "phase": "使魔探险"
+                }
             }
         },
         "next": [
@@ -32,7 +34,7 @@
         ]
     },
     "Summon_Nav01Lobby": {
-        "doc": "导航第 1 步：点顶部「首页」回大厅。",
+        "doc": "导航第 1 步：点顶部「首页」回大厅。\n\n⚠️ 末尾挂 Summon_Nav_Fail：以前只写一个候选，失配会让整条任务报错。",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -52,13 +54,14 @@
             "param": {}
         },
         "next": [
-            "Summon_Nav02TaskCenter"
+            "Summon_Nav02TaskCenter",
+            "Summon_Nav_Fail"
         ],
         "post_delay": 1200,
         "timeout": 4000
     },
     "Summon_Nav02TaskCenter": {
-        "doc": "导航第 2 步：点大厅左侧任务中心图标（无文字，TemplateMatch）。",
+        "doc": "导航第 2 步：点大厅左侧任务中心图标（无文字，TemplateMatch）。\n\n⚠️ 点完任务中心图标页面不一定立刻切好，接到 Summon_Nav03Retry 去重试。",
         "recognition": {
             "type": "TemplateMatch",
             "param": {
@@ -77,13 +80,14 @@
             "param": {}
         },
         "next": [
-            "Summon_Nav03Tab"
+            "Summon_Nav03Retry",
+            "Summon_Nav_Fail"
         ],
         "post_delay": 1200,
         "timeout": 4000
     },
     "Summon_Nav03Tab": {
-        "doc": "导航第 3 步：切到任务中心左侧的「使魔探险」标签，然后进入循环体。",
+        "doc": "导航第 3 步：切到任务中心左侧的「使魔探险」标签，然后进入循环体。\n\n⚠️ 末尾挂 Summon_PhaseDone：万一下一跳也没命中，平静收尾，不要让整条任务报错。",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -103,7 +107,8 @@
             "param": {}
         },
         "next": [
-            "Summon_Loop"
+            "Summon_Loop",
+            "Summon_PhaseDone"
         ],
         "post_delay": 1200,
         "timeout": 4000
@@ -265,11 +270,59 @@
             "type": "Custom",
             "param": {
                 "custom_action": "phase_end",
-                "custom_action_param": {"phase": "使魔探险"}
+                "custom_action_param": {
+                    "phase": "使魔探险"
+                }
             }
         },
         "next": [
             "Presence_SummonLove_Gate"
+        ]
+    },
+    "Summon_Nav03Retry": {
+        "doc": "使魔探险 导航的**重试汇合点**。\n\n实测点完上一步之后页面不一定会立刻切好，直接咬死一个候选会失配。\n给它 3 次机会（1.2s 间隔），还不行才回退去重点一次。\n\nnext 第二个候选是回退分支，保证它永不空手而归。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Summon_Nav03Tab",
+            "Summon_Nav03Reclick"
+        ],
+        "post_delay": 1200,
+        "max_hit": 3
+    },
+    "Summon_Nav03Reclick": {
+        "doc": "重试分支：回退重新点一次「任务中心图标」，然后回到重试汇合点。\n\n⚠️ 只被 Retry 求值，而 Retry 的 max_hit 是 3 —— 整个回退循环最多 3 轮就有刹车。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Summon_Nav02TaskCenter",
+            "Summon_Nav_Fail"
+        ]
+    },
+    "Summon_Nav_Fail": {
+        "doc": "使魔探险 导航的**放弃点**。\n\n导航没走通时不报错、不终止 —— 平静交给 Summon_PhaseDone，让日常继续往下跑。\n这一次没做到，下次跑还会再试；总比整条任务挂掉好。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Summon_PhaseDone"
         ]
     }
 }

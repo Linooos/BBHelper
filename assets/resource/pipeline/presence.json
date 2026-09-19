@@ -1404,7 +1404,7 @@
         "timeout": 8000
     },
     "Presence_WorldSoBig_GiveUp": {
-        "doc": "放弃点：导航没走通 / 找不到「快捷战斗」（今天已打过）/ 弹窗没出现。\\n\\n⚠️ 它**不等于任务失败** —— 看状态文件时「世界那么大 done」只表示这一段走过去了。",
+        "doc": "放弃点：导航没走通 / 找不到「快捷战斗」（今天已打过）/ 弹窗没出现。\\n\\n⚠️ 它**不等于任务失败** —— 看状态文件时「世界那么大 done」只表示这一段走过去了。\n\n═══ 跳过之后 ═══\n同样接到 Skip —— 不管是因为上锁还是导航失败，这里都算「没做成」，\n记 skipped、回首页，进下一个任务。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -1414,11 +1414,11 @@
             "param": {}
         },
         "next": [
-            "Presence_WorldSoBig_PhaseDone"
+            "Presence_WorldSoBig_Skip"
         ]
     },
     "Presence_WorldSoBig_PhaseDone": {
-        "doc": "世界那么大收尾：写完成状态，交给体力消耗阶段。所有出口都汇到这里。",
+        "doc": "世界那么大收尾（**真正做成的那条路**）：写 done 状态，然后回首页。\n\n⚠️ 2026-09-19 修 bug：这个节点的 next 原本写的是 Daily_Stamina，\n**把「战力补强」整个跳过了**。状态文件里战力补强的时间戳停在更早的一轮，\n就是它的铁证。正确去向是 BackHome → 战力补强切点。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -1433,7 +1433,7 @@
             }
         },
         "next": [
-            "Daily_Stamina"
+            "Presence_WorldSoBig_BackHome"
         ]
     },
     "Presence_WorldSoBig_Nav": {
@@ -1735,7 +1735,7 @@
         "timeout": 4000
     },
     "Presence_WorldSoBig_Locked": {
-        "doc": "⭐⭐ **「快捷战斗」被锁时的拦截**（2026-09-19 实测发现）。\\n\\n═══ 现象 ═══\\n虚轴之庭关卡详情页上，「快捷战斗」按钮旁边写着\\n    「单关造成20亿伤害解锁」\\n此时按钮是**置灰的**：OCR 照样能读到「快捷战斗」四个字，但点下去毫无反应。\\n这正是本项目早就记录过的坑 —— 「OCR 读得到文字 ≠ 按钮可点」。\\n不拦的话，Quick 会命中、点击、什么也不发生，然后 Confirm 失配，\\n整条链浪费一轮才放弃。\\n\\n═══ 判据 ═══\\n用「解锁」两个字。它在按钮右侧的说明文字里，锁着的时候出现，解锁后消失。\\n⚠️ 只写「解锁」不写全句：整句会被 OCR 拆成多段，取尾部稳定子串更保险\\n（同 App_TapTitle 用「屏幕继续」的写法）。\\n\\n═══ ⚠️ 这意味着什么 ═══\\n**本账号目前打不了「世界那么大」** —— 快捷战斗锁着，只能走通用战斗脚本\\n手动打（20 亿伤害），而那条路还没实现。所以现在这条链遇到上锁会优雅跳过，\\n「世界那么大」保持未完成状态，不会误报成功。",
+        "doc": "⭐⭐ **「快捷战斗」被锁时的拦截**（2026-09-19 实测发现）。\\n\\n═══ 现象 ═══\\n虚轴之庭关卡详情页上，「快捷战斗」按钮旁边写着\\n    「单关造成20亿伤害解锁」\\n此时按钮是**置灰的**：OCR 照样能读到「快捷战斗」四个字，但点下去毫无反应。\\n这正是本项目早就记录过的坑 —— 「OCR 读得到文字 ≠ 按钮可点」。\\n不拦的话，Quick 会命中、点击、什么也不发生，然后 Confirm 失配，\\n整条链浪费一轮才放弃。\\n\\n═══ 判据 ═══\\n用「解锁」两个字。它在按钮右侧的说明文字里，锁着的时候出现，解锁后消失。\\n⚠️ 只写「解锁」不写全句：整句会被 OCR 拆成多段，取尾部稳定子串更保险\\n（同 App_TapTitle 用「屏幕继续」的写法）。\\n\\n═══ ⚠️ 这意味着什么 ═══\\n**本账号目前打不了「世界那么大」** —— 快捷战斗锁着，只能走通用战斗脚本\\n手动打（20 亿伤害），而那条路还没实现。所以现在这条链遇到上锁会优雅跳过，\\n「世界那么大」保持未完成状态，不会误报成功。\n\n═══ 跳过之后 ═══\n接到 Presence_WorldSoBig_Skip —— 记成 **skipped（未完成）**，然后回首页。",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -1755,7 +1755,7 @@
             "param": {}
         },
         "next": [
-            "Presence_WorldSoBig_GiveUp"
+            "Presence_WorldSoBig_Skip"
         ],
         "post_delay": 500,
         "timeout": 2000
@@ -1804,6 +1804,51 @@
         },
         "next": [
             "ClaimRewards_PhaseDone"
+        ]
+    },
+    "Presence_WorldSoBig_BackHome": {
+        "doc": "回首页收尾。用户 2026-09-19 的要求：这一阶段不管做成没做成，\n**都先回首页再进下一个任务** —— 不把游戏留在中途某个页面里，\n也保证下一个任务（战力补强）的导航是从干净状态起步的。\n\n顶部导航每个页面都在，所以从哪都能点回去。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    600,
+                    40,
+                    120,
+                    80
+                ],
+                "expected": [
+                    "首页"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Presence_ZhanLiBuQiang_Gate"
+        ],
+        "post_delay": 1500,
+        "timeout": 4000
+    },
+    "Presence_WorldSoBig_Skip": {
+        "doc": "**跳过出口**：走到这里说明这一步没做成（快捷战斗灰着 / 导航没走通）。\n\n写的是 **skipped 而不是 done** —— 用户 2026-09-19 的要求：\n「按键灰色的时候直接在结果提示未完成」。\n两者必须分开：done 表示游戏里真做成了，skipped 只表示流程正常地绕过去了。\n混用会让人看着 show_state 以为今日已完成，实际没打。\n\n写完回首页，让下一个任务从干净状态起步。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "phase_skip",
+                "custom_action_param": {
+                    "phase": "世界那么大"
+                }
+            }
+        },
+        "next": [
+            "Presence_WorldSoBig_BackHome"
         ]
     }
 }
