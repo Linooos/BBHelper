@@ -301,32 +301,34 @@
             }
         },
         "action": {"type": "Click", "param": {}},
-        "next": ["Presence_SummonLove_Nav02Gate"],
+        "next": [
+            "Presence_SummonLove_Nav02Gate",
+            "Presence_SummonLove_GiveUp"
+        ],
         "post_delay": 1500,
         "timeout": 4000
     },
     "Presence_SummonLove_Nav02Gate": {
-        "doc": "主菜单判定 + 退回循环的**汇合点**。\n\n顺序很重要：先看左侧竖栏在不在（Activity 命中就说明已经在主菜单），\n不在才去点右上角返回上一层。反过来会把主菜单当成子页去点右上角。\n\nmax_hit 10 是退层次的刹车：战斗下面的层级最深是「关卡详情页 → 多元裂缝 → 主菜单」\n两三层，10 次绰绰有余；万一卡在某个不认识的子页，转 10 圈后落到 GiveUp。",
+        "doc": "**层级判定 + 退回循环的汇合点。**\n\n每轮就一件事：**看左侧竖栏在不在。**\n  在  → 已经在战斗主菜单了，点「活动」往下走\n  不在 → 在某个子页里，点一下右上角那个蓝色按钮退一层，回到本节点重来\n\n顺序不能反：反了会把主菜单当成子页去点右上角（那里是「崩坏之塔」宣传图）。\n\n═══ 为什么层级判定放在这一层 ═══\nNav02Up 因此可以是**无条件点击**，不需要猜子页名。层级判断只写一次、\n放在这里，Nav02Up 只管点 —— 活动上新、子页改名都不会让它失效。\n\n═══ 刹车 ═══\n`max_hit: 10`：战斗下面的层级最深是「关卡详情页 → 多元裂缝 → 主菜单」两三层，\n10 次绰绰有余。耗尽后本节点失配，由调用方（Nav01Battle / Nav02Up）的\nnext 落到 GiveUp。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
         "next": [
             "Presence_SummonLove_Nav02Activity",
-            "Presence_SummonLove_Nav02Up",
-            "Presence_SummonLove_GiveUp"
+            "Presence_SummonLove_Nav02Up"
         ],
         "post_delay": 1000,
         "max_hit": 10
     },
     "Presence_SummonLove_Nav02Activity": {
-        "doc": "主菜单左侧竖栏的「活动」。它只在战斗主菜单存在 —— 子页里这一列会整个换掉，\n所以它同时也是「已经在主菜单」的判据。",
+        "doc": "主菜单**左侧竖栏**的「活动」。这一栏是 主线 / 活动 / 挑战 三个 ——\n它只在战斗主菜单存在，进任何子页都会整个消失，下一级回到主菜单又稳定出现。\n所以它同时承担两个职责：\n  1. 「已经在主菜单」的层级判据（Nav02Gate 顺序里的第一候选）\n  2. 要点的目标本身\n\n判据只写「活动」而不是把三栏都列上：**因为命中和点击是同一个动作** ——\n如果 expected 里有三个词，Maa 会点分数最高的那个，可能点到「主线」去。\n只认「活动」，命中即点它，两者不会打架。\n\nROI 纵向开得比较宽（y 150-390，罩住整栏三个按钮）：\n活动按钮实测在 y≈250-283，但界面版本变化时整栏可能上下平移。\n\n═══ 点击点用**识别框中心**，不写死坐标 ═══\n曾经写死过 (95,265)，结果有一次 OCR 报回来的框在 y=323 —— 写死的点就会点到\n相邻那一栏去。既然识别已经定位到了，就点识别框中心，两者天然自洽。",
         "recognition": {
             "type": "OCR",
             "param": {
                 "roi": [
                     10,
-                    225,
+                    150,
                     180,
-                    80
+                    240
                 ],
                 "expected": [
                     "活动"
@@ -334,33 +336,13 @@
             }
         },
         "action": {"type": "Click", "param": {}},
-        "next": ["Presence_SummonLove_Nav03Gate"],
+        "next": ["Presence_SummonLove_Nav03Reset"],
         "post_delay": 1500,
         "timeout": 3000
     },
     "Presence_SummonLove_Nav02Up": {
-        "doc": "点右上角的**子菜单名按钮**返回上一层（(1155,155) 写死）。\n\n判据是那个 ROI 里出现已知的子页名 —— 按钮文字就是当前子页名，所以只能枚举。\n新增战斗子页时**记得把名字加进 expected**，否则会认不出、退不回去。\n\n⚠️ 主菜单上这个位置是「崩坏之塔」的宣传图（文字到 x≈1010 就结束了），\nROI 从 1040 起，不会误匹配 ✓。而且主菜单的情况已经被 Nav02Activity 先接住了，\n这里根本不会被求值。",
-        "recognition": {
-            "type": "OCR",
-            "param": {
-                "roi": [
-                    1040,
-                    120,
-                    230,
-                    60
-                ],
-                "expected": [
-                    "多元裂缝",
-                    "虚轴之庭",
-                    "螺旋回廊",
-                    "曜日挑战",
-                    "崩坏之塔",
-                    "精神羁绊",
-                    "搏击训练室",
-                    "使魔的爱"
-                ]
-            }
-        },
+        "doc": "点右上角的**蓝色子菜单名按钮**返回上一层（(1155,155) 写死）。\n\n═══ 为什么是 DirectHit，不做任何文本校验（用户 2026-09-19 的设计意见）═══\n最初这里枚举了已知子页名做判据（「按钮文字就是当前子页名，所以只能枚举」）——\n那是**脆弱的写法**：活动一上新、子页一改名，就退不回去了。\n\n正解是：**层级判定交给 Nav02Gate 那一层**（看左侧竖栏在不在）。\n走到本节点 ⟹ 左侧竖栏已经确认不在 ⟹ 必定在某个子页 ⟹ 右上角必定有那个返回按钮。\n既然前置条件已经保证，这里再猜一次文字就是多余且易错的。\n\nDirectHit 在这里也安全：它只被 Nav02Gate 的 next 求值，而 Nav02Gate 每轮\n最多命中 max_hit 次，循环有刹车（见 Nav02Gate 的 doc）。",
+        "recognition": {"type": "DirectHit", "param": {}},
         "action": {
             "type": "Click",
             "param": {"target": [
@@ -368,12 +350,48 @@
                     155
                 ]}
         },
-        "next": ["Presence_SummonLove_Nav02Gate"],
-        "post_delay": 1200,
-        "timeout": 3000
+        "next": [
+            "Presence_SummonLove_Nav02Gate",
+            "Presence_SummonLove_GiveUp"
+        ],
+        "post_delay": 1200
+    },
+    "Presence_SummonLove_Nav03Reset": {
+        "doc": "⭐⭐ **先无条件滑回顶部**，再交给下面往前扫描。\n\n═══ 为什么必须这样做（2026-09-19 实机踩到）═══\n右侧列的滑动位置是**滞留**的。第一次跑通了，第二次却失败了 —— 截图显示\n右侧列已经滑过头：「多元裂缝」的卡片滚出视野，只剩它的副标题残影留在顶部。\n而当时 Scroll 只会**往下**滑，永远回不到上面去，空转 8 轮后任务报错。\n\n滑动滞留意味着列表位置是**未知**的，所以扫描前必须先把它归零。\n归零方式是朝反方向连滑几次 —— 滑到顶之后继续滑是无效动作，天然安全。\n\n动作是「手指往下拖」(300→460)，内容跟着下移，露出上面被挡住的卡片。\n\n═══ 步长 160px，不是越大越好（用户提醒）═══\n一开始拖 280px，一步跨得太远 —— 卡片会整张从识别区跳过去。\n720px 的屏幕上一屏能看到约 3 张卡，160px 的步子刚好是三分之一屏，\n既不会漏也不会原地打转。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {
+            "type": "Swipe",
+            "param": {
+                "begin": [
+                    1000,
+                    300
+                ],
+                "end": [
+                    1000,
+                    460
+                ],
+                "duration": 300
+            }
+        },
+        "next": [
+            "Presence_SummonLove_Nav03ResetGate",
+            "Presence_SummonLove_Nav03Gate"
+        ],
+        "post_delay": 600
+    },
+    "Presence_SummonLove_Nav03ResetGate": {
+        "doc": "归零循环的汇合点：每滑一次就找一次「多元裂缝」。\n\n多半第一下就命中 —— 实测「多元裂缝」是右列第二张卡，回到顶部后直接可见。\nmax_hit 4 只是兜底（列表再长，4 次下滑也到顶了）；耗尽后回到\nNav03Reset 的 next，进入往前扫描那一段。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "Presence_SummonLove_Nav03Rift",
+            "Presence_SummonLove_Nav03Reset"
+        ],
+        "post_delay": 600,
+        "max_hit": 8
     },
     "Presence_SummonLove_Nav03Gate": {
-        "doc": "右侧列找「多元裂缝」的**汇合点**。找不到就往下滑一屏再看，\n因为有**滑动位置的滞留** —— 上次滑到哪儿，这次进去就还在哪儿。\n\nmax_hit 8：右侧列一共就几张卡，滑 8 次足够到底。",
+        "doc": "右侧列**往前扫描**「多元裂缝」的汇合点。找不到就往下滑一屏再看。\n\n⚠️ 本节点只负责「往下」。往回找的能力在 Nav03Reset —— 顺序是先 Reset 归零、\n再走到这里往前扫，两者合起来才是完整的「全列表可达」。\n\nmax_hit 6：右侧列一共就几张卡，滑 6 次足够到底。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
         "next": [
@@ -382,18 +400,18 @@
             "Presence_SummonLove_GiveUp"
         ],
         "post_delay": 800,
-        "max_hit": 8
+        "max_hit": 10
     },
     "Presence_SummonLove_Nav03Rift": {
-        "doc": "右侧列里的「多元裂缝」。点在识别框中心（卡片标题那一行本身就属于卡片）。",
+        "doc": "右侧列里的「多元裂缝」。点在识别框中心（卡片标题那一行本身就属于卡片）。\n\n═══ ⚠️ ROI 必须罩住**整个右列**（y 140-660），不能只开中间一条 ═══\n2026-09-19 实机踩到：最初 ROI 只开了 y 330-460 那 130px 高的一条，\n而每次滑动大约滚 280px —— **卡片会整张从识别区上方跳过去**，\n扫 6 轮都碰不到，任务直接失败。\n\nROI 比滑动步长小 = 扫描会出现「盲跳」，这是滚动查找类节点的通用坑。\n开满整个可视区就没有盲区了，「多元裂缝」四个字也不会在别处出现，不会误匹配。",
         "recognition": {
             "type": "OCR",
             "param": {
                 "roi": [
                     745,
-                    330,
+                    140,
                     500,
-                    130
+                    520
                 ],
                 "expected": [
                     "多元裂缝"
@@ -416,13 +434,13 @@
             "param": {
                 "begin": [
                     1000,
-                    500
+                    460
                 ],
                 "end": [
                     1000,
-                    220
+                    300
                 ],
-                "duration": 800
+                "duration": 300
             }
         },
         "next": ["Presence_SummonLove_Nav03Gate"],
