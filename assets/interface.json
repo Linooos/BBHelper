@@ -476,22 +476,12 @@
                     //     Battle_PickStage   刷第二次以上时的重新选关
                     // 只改一个的话，第二次开刷会去点旧关卡 ✗
                     "pipeline_override": {
-                        "Stamina_PickStage": {
-                            "recognition": {
-                                "param": {
-                                    "expected": [
-                                        "喵王の福利"
-                                    ]
-                                }
-                            },
-                            "action": {
-                                "param": {
-                                    "target": [
-                                        640,
-                                        305
-                                    ]
-                                }
-                            }
+                        // 选这个关卡 = 走它自己的入场链（导航也归那条链管 ——
+                        // 喵王在曜日挑战页，别处的关卡进法不一样）
+                        "Stamina_Entry": {
+                            "next": [
+                                "Stamina_MiaoWang"
+                            ]
                         },
                         "Battle_PickStage": {
                             "recognition": {

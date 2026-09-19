@@ -1,6 +1,6 @@
 {
     "Stamina_Entry": {
-        "doc": "体力消耗循环。一次完成三条「累计消耗体力」的每日任务：\n千锤百炼 200 / 勤劳的魔女 180 / 精益求精 300，刷满 300 即可同时完成。\n\n═══ 本次实现的范围（2026-09-20）═══\n只做**导航到关卡**这一段：首页/战斗 → 活动 → 多元裂缝 → 曜日挑战 → 喵王の福利。\n刷关循环本体见 Stamina_Arrived 的 TODO。\n\n结构同其他链：先试活（已经停在关卡页就直接选），不中再走导航。",
+        "doc": "体力消耗循环。一次完成三条「累计消耗体力」的每日任务：\n千锤百炼 200 / 勤劳的魔女 180 / 精益求精 300，刷满 300 即可同时完成。\n\n═══ 入场按关卡拆分（2026-09-20 用户指出后重构）═══\n「从哪进关卡」是**关卡专属**的 —— 喵王の福利在曜日挑战页，别的关卡可能在别处。\n所以本节点不写死导航，next 由界面「预设关卡」选项覆盖成对应关卡的入场链：\n    Stamina_Entry.next  →  Stamina_MiaoWang  （喵王の福利）\n加新关卡 = 复制一份入场链 + 界面下拉加一条 case。\n\n刷关次数由「刷关次数」子选项提供（覆盖 Battle_ClearStage_Count.max_hit）。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -15,8 +15,7 @@
             }
         },
         "next": [
-            "Stamina_PickStage",
-            "Stamina_Nav"
+            "Stamina_MiaoWang"
         ]
     },
     "Stamina_Plan": {
@@ -60,8 +59,8 @@
             "Presence_Resonance_Gate"
         ]
     },
-    "Stamina_Nav": {
-        "doc": "导航到「曜日挑战 → 喵王の福利」关卡详情页。镜像「多元裂缝」那条链。",
+    "Stamina_MiaoWang_Nav": {
+        "doc": "**喵王の福利专属**的导航：首页/战斗 → 活动 → 多元裂缝 → 曜日挑战。\n\n⚠️ 这条路径是为「喵王和同在曜日挑战页的关卡」写的。别的关卡如果在\n螺旋回廊 / 虚轴之庭那些页，应该另写一条链，不要硬套这条。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -71,10 +70,10 @@
             "param": {}
         },
         "next": [
-            "Stamina_Nav01Battle"
+            "Stamina_MiaoWang_Nav01Battle"
         ]
     },
-    "Stamina_Nav01Battle": {
+    "Stamina_MiaoWang_Nav01Battle": {
         "doc": "导航第 1 步：点顶部「战斗」。ROI 右边界止于 840（右邻「装备」从 857 起）。",
         "recognition": {
             "type": "OCR",
@@ -95,13 +94,13 @@
             "param": {}
         },
         "next": [
-            "Stamina_Nav02Gate",
+            "Stamina_MiaoWang_Nav02Gate",
             "Stamina_GiveUp"
         ],
         "post_delay": 1500,
         "timeout": 4000
     },
-    "Stamina_Nav02Gate": {
+    "Stamina_MiaoWang_Nav02Gate": {
         "doc": "层级判定 + 退回循环的汇合点（同使魔的爱 / 世界那么大）。\n\n每轮：看左侧竖栏（主线/活动/挑战）在不在 —— 在就是主菜单，不在就是子页。\n候选顺序：Activity（在就点）→ BackArrow（**详情页**走左上箭头）→ Up（子页点右上角面包屑）。\n\n⚠️ 详情页上面包屑是灰的、点不动，必须走左上角箭头。",
         "recognition": {
             "type": "DirectHit",
@@ -112,14 +111,14 @@
             "param": {}
         },
         "next": [
-            "Stamina_Nav02Activity",
-            "Stamina_Nav02BackArrow",
-            "Stamina_Nav02Up"
+            "Stamina_MiaoWang_Nav02Activity",
+            "Stamina_MiaoWang_Nav02BackArrow",
+            "Stamina_MiaoWang_Nav02Up"
         ],
         "post_delay": 1000,
         "max_hit": 12
     },
-    "Stamina_Nav02Activity": {
+    "Stamina_MiaoWang_Nav02Activity": {
         "doc": "主菜单左侧竖栏的「活动」。命中即点识别框中心（不写死坐标，整栏可能上下平移）。",
         "recognition": {
             "type": "OCR",
@@ -140,12 +139,12 @@
             "param": {}
         },
         "next": [
-            "Stamina_Nav03Reset"
+            "Stamina_MiaoWang_Nav03Reset"
         ],
         "post_delay": 1500,
         "timeout": 3000
     },
-    "Stamina_Nav02BackArrow": {
+    "Stamina_MiaoWang_Nav02BackArrow": {
         "doc": "**关卡详情页专用**返回：点左上角箭头 (65,148)。判据「选择助战好友」是详情页独有的文案。",
         "recognition": {
             "type": "OCR",
@@ -171,12 +170,12 @@
             }
         },
         "next": [
-            "Stamina_Nav02Gate",
+            "Stamina_MiaoWang_Nav02Gate",
             "Stamina_GiveUp"
         ],
         "post_delay": 2000
     },
-    "Stamina_Nav02Up": {
+    "Stamina_MiaoWang_Nav02Up": {
         "doc": "点右上角蓝色子菜单名按钮退回上一层 (1155,155)。**只对子页有效**。",
         "recognition": {
             "type": "DirectHit",
@@ -192,12 +191,12 @@
             }
         },
         "next": [
-            "Stamina_Nav02Gate",
+            "Stamina_MiaoWang_Nav02Gate",
             "Stamina_GiveUp"
         ],
         "post_delay": 2000
     },
-    "Stamina_Nav03Reset": {
+    "Stamina_MiaoWang_Nav03Reset": {
         "doc": "先无条件滑回右列顶部，再往前扫描。\n\n⚠️ 右列滑动位置是**滞留**的，位置未知，扫描前必须归零。\n步长 160px / duration 300ms —— 都是实机试出来的：步子太大会让卡片整张跳过识别区，\nduration 太长会被当成「按住拖拽」而不是滚动。",
         "recognition": {
             "type": "DirectHit",
@@ -218,12 +217,12 @@
             }
         },
         "next": [
-            "Stamina_Nav03ResetGate",
-            "Stamina_Nav03Gate"
+            "Stamina_MiaoWang_Nav03ResetGate",
+            "Stamina_MiaoWang_Nav03Gate"
         ],
         "post_delay": 600
     },
-    "Stamina_Nav03ResetGate": {
+    "Stamina_MiaoWang_Nav03ResetGate": {
         "doc": "归零循环的汇合点：每滑一次找一次「多元裂缝」。max_hit 3（用户实测调成 3 够用，别改回去）。",
         "recognition": {
             "type": "DirectHit",
@@ -234,13 +233,13 @@
             "param": {}
         },
         "next": [
-            "Stamina_Nav03Rift",
-            "Stamina_Nav03Reset"
+            "Stamina_MiaoWang_Nav03Rift",
+            "Stamina_MiaoWang_Nav03Reset"
         ],
         "post_delay": 600,
         "max_hit": 3
     },
-    "Stamina_Nav03Gate": {
+    "Stamina_MiaoWang_Nav03Gate": {
         "doc": "右列往前扫描「多元裂缝」的汇合点。找不到就往下滑一屏。max_hit 10。",
         "recognition": {
             "type": "DirectHit",
@@ -251,14 +250,14 @@
             "param": {}
         },
         "next": [
-            "Stamina_Nav03Rift",
-            "Stamina_Nav03Scroll",
+            "Stamina_MiaoWang_Nav03Rift",
+            "Stamina_MiaoWang_Nav03Scroll",
             "Stamina_GiveUp"
         ],
         "post_delay": 800,
         "max_hit": 10
     },
-    "Stamina_Nav03Rift": {
+    "Stamina_MiaoWang_Nav03Rift": {
         "doc": "右列里的「多元裂缝」。⚠️ ROI 罩满整个右列（y 140-660）—— 只开中间一条的话卡片会整张跳过去。",
         "recognition": {
             "type": "OCR",
@@ -279,12 +278,12 @@
             "param": {}
         },
         "next": [
-            "Stamina_Nav04Youri"
+            "Stamina_MiaoWang_Nav04Youri"
         ],
         "post_delay": 1500,
         "timeout": 3000
     },
-    "Stamina_Nav03Scroll": {
+    "Stamina_MiaoWang_Nav03Scroll": {
         "doc": "右列往下滑一屏。x 取 1000（卡片间的纵向带），避免被当成拖拽卡片。",
         "recognition": {
             "type": "DirectHit",
@@ -305,11 +304,11 @@
             }
         },
         "next": [
-            "Stamina_Nav03Gate"
+            "Stamina_MiaoWang_Nav03Gate"
         ],
         "post_delay": 800
     },
-    "Stamina_Nav04Youri": {
+    "Stamina_MiaoWang_Nav04Youri": {
         "doc": "多元裂缝页右列的**「曜日挑战」**（第三张卡）。\n\n⚠️ 与「世界那么大」那条链的差异点就在这一级：那边点第一张「虚轴之庭」，\n这里点第三张「曜日挑战」。",
         "recognition": {
             "type": "OCR",
@@ -330,13 +329,13 @@
             "param": {}
         },
         "next": [
-            "Stamina_PickStage",
+            "Stamina_MiaoWang_Pick",
             "Stamina_GiveUp"
         ],
         "post_delay": 1500,
         "timeout": 3000
     },
-    "Stamina_PickStage": {
+    "Stamina_MiaoWang_Pick": {
         "doc": "⭐ **关卡选择节点** —— 识别文本和点击位置**都由界面选项覆盖**：\n    recognition.param.expected   要选的关卡名\n    action.param.target          它的卡片坐标\n\n这样「预设关卡」下拉框里加一个选项 = 在 interface.json 里加一条 override；\n以后做「自定义关卡」模式时，用户传的关卡名和坐标也是覆盖这两个字段。\n\n═══ 实测几何（喵王の福利）═══\n    标题「喵王の福利」在 ≈(640,225)\n    卡片本体在     ≈(640,305)\n标题在卡片**上方**，所以识别框和点击点是分开的两个坐标。\n\n═══ ⚠️ ROI 宽度有讲究（2026-09-20 实测）═══\n最初开的是 x 420-860，把**邻卡「乱入的团子」的最后一个字**也框进来了 ——\n实测那一次同时匹配到 `text='喵王の福利'`(0.9998) 和 `text='子'`(0.9993)，\n靠分数更高才选对。已收窄到 x 470-810（只罩本卡标题）。\n\n好在这条链的**点击用的是写死的 target，不是识别框中心** —— 就算识别选错，\n也不会点歪。但识别本身该准，否则在别的页面误命中会点错地方。",
         "recognition": {
             "type": "OCR",
@@ -395,6 +394,21 @@
         },
         "next": [
             "Stamina_PhaseDone"
+        ]
+    },
+    "Stamina_MiaoWang": {
+        "doc": "**喵王の福利的专属入场链**（2026-09-20 用户指出后拆出来的）。\n\n═══ 为什么要按关卡拆 ═══\n「首页 → 战斗 → 活动 → 多元裂缝 → 曜日挑战」这条路径是**喵王和同页关卡专属的**。\n别的关卡不一定在曜日挑战页 —— 比如虚轴之庭在右列第一张、螺旋回廊第二张。\n如果所有关卡共用一条导航，加了新关卡它还是会跑去曜日挑战 ✗。\n\n所以**每个预设关卡带自己的入场链**，界面「预设关卡」选项只负责选走哪条：\n    Stamina_Entry.next  →  Stamina_MiaoWang（本节点）\n以后加新关卡就照着本链复制一份（导航段按那个关卡所在页写），\n并在界面下拉里加一条 case 指向它。\n\n═══ 结构 ═══\n先试活（已经停在关卡页就直接选），不中再走本关专属导航。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Stamina_MiaoWang_Pick",
+            "Stamina_MiaoWang_Nav"
         ]
     }
 }
