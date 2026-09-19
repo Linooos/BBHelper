@@ -148,54 +148,96 @@ uv pip install Pillow
 > 不影响插件。三者分工：插件（交互调试）＞ `dev_run.py`（命令行批量验证）＞
 > MaaMCP（纯 OCR/模板匹配的快速探查）。
 
-### ⚠️ 开发期保持 `interface.json` 的 `agent` 块为**注释状态**
+### ⚠️ `interface.json` 的 `agent` 块**必须填**，且 venv 的 maafw 版本必须与插件一致
 
-这是最容易踩的坑，而且我踩过：给 `agent` 块填上 `child_exec` 之后，
-插件反而连环报 `Python was not found` / `ModuleNotFoundError: No module named 'maa'`。
-**取消注释才是错的。**
+这一节我先后写错过两次，最终结论如下（2026-09-19 全部实机确认）。
 
-原因在插件源码 `buildRuntime`：
+#### 一、不填 `agent` 块 → 所有 `Custom*` 节点失效
+
+曾经以为「不填插件也能用」——**错的**。不填时插件**根本不会启动我们的 AgentServer**，
+跑日常会在第一个 Custom 节点上直接炸：
+
+```text
+[ERR][CustomAction.cpp] Action is null [node_name=App_Launch] [param.name=phase_begin]
+Task.Failed
+```
+
+当初只验证了「插件不报错」，没验证 Custom 节点**能不能跑**（Custom 节点一直是用
+`dev_run.py` 测的），所以这个洞藏了很久。
+
+插件源码里的真实逻辑（`buildRuntime` + `AgentClient`）：
 
 ```js
-result.agent = [];
-for (const agent of agents) {
-    if (!agent.child_exec) continue;   // 没填 child_exec 就整个跳过
-    ...
+const debug_session = debugSessionMapper[agent.child_exec];
+if (agentConfig.debug_session) { startDebugSession(...) }        // 走 VS Code 调试器
+else if (agentConfig.child_exec) { startTask(child_exec, args) } // 当终端命令跑
+```
+
+`child_exec` 既是**要执行的文件**，又是**查调试会话的键**。查不到就退回终端命令那条路。
+
+#### 二、`{PROJECT_DIR}` 是 `assets/`，不是项目根
+
+```js
+const projectDir = joinPath(activeResource.workspace, activeResource.dirRelative)
+```
+
+`dirRelative` = interface.json 相对工作区根的目录 ⟹ `{PROJECT_DIR}` = `<项目>/assets`。
+interface schema 里也写着「**CWD 为 interface.json 所在目录**」。
+所以从 `assets/` 回项目根要 `../`：
+
+```jsonc
+"agent": {
+    "child_exec": "{PROJECT_DIR}/../.venv/Scripts/python.exe",
+    "child_args": ["{PROJECT_DIR}/../agent/main.py"]
 }
 ```
 
-- **不填 `agent` 块** → 插件**跳过**它，改走自己的机制：VS Code 的 `maa-launch`
-  debug session，用你（或 Python 扩展）选定的解释器启动 AgentServer。**本来就能用。**
-- **填了 `child_exec`** → 被拽去「用终端命令启动」那条路，而那条路依赖系统 PATH 上
-  有可用的 `python`。本机没有系统 Python，PATH 上的
-  `C:\Users\...\AppData\Local\Microsoft\WindowsApps\python.exe` 又只是个
-  **Microsoft Store 转接存根**（`AppInstallerPythonRedirector.exe`），于是：
-  - 没命中任何解释器 → `Python was not found`
-  - 命中了别的解释器 → `No module named 'maa'`
+> 开发早期写的是 `./agent/main.py`（相对 `assets/` 展开），那时 `assets/agent/`
+> 还躺着一份**陈旧副本**，插件跑的是它 —— 所以「组件找不到」。副本删掉后变成
+> 路径直接不存在。**总之：`agent/` 只能有一份，永远不要复制到 `assets/` 下。**
 
-**两种报错同一个根因：走了不该走的那条启动路径。**
+#### 三、⭐ 版本不匹配会**静默失败**（最难查的一种）
 
-> 同时也要注意 **开发布局与发布布局不一致**：调用方以 interface.json 所在目录为 CWD，
-> 开发布局下 `./agent/main.py` 会解析成 `assets/agent/main.py`（不存在）。
-> 表现就是插件去跑了一份 `agent/` 的**副本**。**千万别复制 agent/ 到 assets/ 下** ——
-> 两份代码以后必然漂移，改了这份跑那份，极难排查。
+配好路径之后现象变成「**什么都没有**」：没输出、没弹窗、脚本不动。
+
+真凶在插件自己的日志里（`<项目>/assets/debug/maafw.log`，注意不是 `debug/`）：
+
+```text
+[ERR][AgentServer.cpp] Protocol version mismatch
+    client: [req.version=v5.12.2] [req.protocol=7]
+    server: ["v5.13.1"=v5.13.1] [kProtocolVersion=8]
+[ERR][AgentServer.cpp] Please update AgentClient
+```
+
+插件的 AgentClient 用的是它**自带的**框架版本
+（`.../globalStorage/nekosu.maa-support/native/install/<版本>/`），
+而我们 venv 里的 `maafw` 包更新 —— 协议号对不上，AgentServer 直接拒连，
+而且**不弹任何提示**。
+
+**修法：把 venv 的 `maafw` 降到与插件自带版本一致。**
+
+```bash
+ls "$HOME/AppData/Roaming/Code/User/globalStorage/nekosu.maa-support/native/install/"
+uv pip install --python .venv/Scripts/python.exe "maafw==<上面列出的版本>"
+```
+
+⚠️ **这是耦合的**：插件升级自带框架后，venv 这边也要跟着升，否则又会静默失败。
+出问题先看 `assets/debug/maafw.log` 里的 `Protocol version mismatch`。
 
 ### 发布产物需要 `agent` 块
 
-MFAAvalonia 靠它启动 AgentServer，没有的话所有 `CustomRecognition` /
-`CustomAction` 节点都会失效。所以由 `tools/install.py` 在打包时写入
-（`install_resource` 里，与改写 `version` 放在一起）：
+MFAAvalonia 靠它启动 AgentServer。由 `tools/install.py` 在打包时写入
+（`install_resource` 里，与改写 `version` 放在一起）。发布布局下 `agent/` 与
+interface.json **平级**，所以那边不需要 `../`：
 
 ```python
 interface["agent"] = {
     "child_exec": "python",
-    "child_args": ["./agent/main.py"],
+    "child_args": ["{PROJECT_DIR}/agent/main.py"],
 }
 ```
 
-> 插件另有个 `{PROJECT_DIR}` 变量（= interface.json 所在目录）可用，
-> 但那是**插件私有**变量，MaaFramework 本体不认，会把 interface.json 弄成插件专用。
-> 本项目不用它。
+> 两边形态本来就不同，**不能互相照抄**。
 
 ---
 
