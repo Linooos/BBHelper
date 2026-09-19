@@ -356,7 +356,7 @@
         "timeout": 4000
     },
     "Presence_SummonLove_Nav02Gate": {
-        "doc": "**层级判定 + 退回循环的汇合点。**\n\n每轮就一件事：**看左侧竖栏在不在。**\n  在  → 已经在战斗主菜单了，点「活动」往下走\n  不在 → 在某个子页里，点一下右上角那个蓝色按钮退一层，回到本节点重来\n\n顺序不能反：反了会把主菜单当成子页去点右上角（那里是「崩坏之塔」宣传图）。\n\n═══ 为什么层级判定放在这一层 ═══\nNav02Up 因此可以是**无条件点击**，不需要猜子页名。层级判断只写一次、\n放在这里，Nav02Up 只管点 —— 活动上新、子页改名都不会让它失效。\n\n═══ 刹车 ═══\n`max_hit: 10`：战斗下面的层级最深是「关卡详情页 → 多元裂缝 → 主菜单」两三层，\n10 次绰绰有余。耗尽后本节点失配，由调用方（Nav01Battle / Nav02Up）的\nnext 落到 GiveUp。",
+        "doc": "**层级判定 + 退回循环的汇合点。**\n\n每轮就一件事：**看左侧竖栏在不在。**\n  在  → 已经在战斗主菜单了，点「活动」往下走\n  不在 → 在某个子页里，退一层，回到本节点重来\n\n顺序不能反：反了会把主菜单当成子页去点右侧（那里是「崩坏之塔」宣传图）。\n\n═══ 为什么层级判定放在这一层 ═══\nNav02Up 因此可以是**无条件点击**，不需要猜子页名。层级判断只写一次、放在这里，\n活动上新、子页改名都不会让它失效（用户 2026-09-19 的设计意见）。\n\n═══ 刹车 ═══\n`max_hit: 12`：最深的路径是 `战斗主菜单 → 多元裂缝 → 虚轴之庭 → 关卡详情`（4 层），\n回主菜单要 3 次。耗尽后本节点失配，由调用方落到 GiveUp。\n\n⚠️ 详情页和子页的返回方式**不一样**：详情页右上角那个面包屑是**灰的、点不动**，\n得走左上角箭头。所以候选列表里 Nav02BackArrow 排在 Nav02Up 前面，各靠自己的判据命中。\n\n⚠️ 这个循环必须存在且够长。只检查一次左侧菜单的话，停在「虚轴之庭」这类\n二级子页时会直接卡死（用户 2026-09-19 指出）。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -367,10 +367,11 @@
         },
         "next": [
             "Presence_SummonLove_Nav02Activity",
+            "Presence_SummonLove_Nav02BackArrow",
             "Presence_SummonLove_Nav02Up"
         ],
         "post_delay": 1000,
-        "max_hit": 10
+        "max_hit": 12
     },
     "Presence_SummonLove_Nav02Activity": {
         "doc": "主菜单**左侧竖栏**的「活动」。这一栏是 主线 / 活动 / 挑战 三个 ——\n它只在战斗主菜单存在，进任何子页都会整个消失，下一级回到主菜单又稳定出现。\n所以它同时承担两个职责：\n  1. 「已经在主菜单」的层级判据（Nav02Gate 顺序里的第一候选）\n  2. 要点的目标本身\n\n判据只写「活动」而不是把三栏都列上：**因为命中和点击是同一个动作** ——\n如果 expected 里有三个词，Maa 会点分数最高的那个，可能点到「主线」去。\n只认「活动」，命中即点它，两者不会打架。\n\nROI 纵向开得比较宽（y 150-390，罩住整栏三个按钮）：\n活动按钮实测在 y≈250-283，但界面版本变化时整栏可能上下平移。\n\n═══ 点击点用**识别框中心**，不写死坐标 ═══\n曾经写死过 (95,265)，结果有一次 OCR 报回来的框在 y=323 —— 写死的点就会点到\n相邻那一栏去。既然识别已经定位到了，就点识别框中心，两者天然自洽。",
@@ -398,8 +399,39 @@
         "post_delay": 1500,
         "timeout": 3000
     },
+    "Presence_SummonLove_Nav02BackArrow": {
+        "doc": "⭐⭐ **关卡详情页专用**的返回：点左上角的返回箭头 (65,148)。\n\n═══ 为什么详情页不能用右上角的面包屑（2026-09-19 实测踩到）═══\n详情页右上角那个面包屑是**灰掉的、点了没反应**（子页上它是亮蓝色、可点）。\n所以从详情页出发时，Nav02Up 点多少次都退不出去 —— 当时循环空转了 12 轮\n（max_hit 用满）才放弃，表现是「退不回主菜单、直接跳去跑后面的阶段」。\n\n═══ 判据用「选择助战好友」═══\n它是详情页**独有、且两个详情页都有**的文案：\n    使魔的爱详情页 ✓   虚轴之庭详情页 ✓   多元裂缝/虚轴之庭子页 ✗\n不用模板匹配左上角那个箭头 —— 那个位置背后是**角色立绘**，背景每次都不同，\n模板匹配不稳。文字判据更可靠。\n\n⚠️ 万一将来某个关卡没有「选择助战好友」，本节点会失配、落到 Nav02Up 去点面包屑，\n那一步点不动，最终由 max_hit 兜底放弃。属于「知道为什么」的失败。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    640,
+                    628,
+                    240,
+                    52
+                ],
+                "expected": [
+                    "选择助战好友"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    65,
+                    148
+                ]
+            }
+        },
+        "next": [
+            "Presence_SummonLove_Nav02Gate",
+            "Presence_SummonLove_GiveUp"
+        ],
+        "post_delay": 2000
+    },
     "Presence_SummonLove_Nav02Up": {
-        "doc": "点右上角的**蓝色子菜单名按钮**返回上一层（(1155,155) 写死）。\n\n═══ 为什么是 DirectHit，不做任何文本校验（用户 2026-09-19 的设计意见）═══\n最初这里枚举了已知子页名做判据（「按钮文字就是当前子页名，所以只能枚举」）——\n那是**脆弱的写法**：活动一上新、子页一改名，就退不回去了。\n\n正解是：**层级判定交给 Nav02Gate 那一层**（看左侧竖栏在不在）。\n走到本节点 ⟹ 左侧竖栏已经确认不在 ⟹ 必定在某个子页 ⟹ 右上角必定有那个返回按钮。\n既然前置条件已经保证，这里再猜一次文字就是多余且易错的。\n\nDirectHit 在这里也安全：它只被 Nav02Gate 的 next 求值，而 Nav02Gate 每轮\n最多命中 max_hit 次，循环有刹车（见 Nav02Gate 的 doc）。",
+        "doc": "点右上角的**蓝色子菜单名按钮**返回上一层（(1155,155) 写死）。\n\n⚠️ **只对子页有效**（多元裂缝 / 虚轴之庭 / 崩坏之塔 …）。\n关卡详情页上这个按钮是灰的，要用 Nav02BackArrow 走左上角箭头。\n两条路在 Nav02Gate 的候选列表里，靠各自的前置判据区分。\n\n═══ 为什么不做文本校验（用户 2026-09-19 的设计意见）═══\n最初这里枚举了已知子页名做判据 —— 用户指出那是**脆弱写法**：\n活动一上新、子页一改名就退不回去。层级判定交给 Nav02Gate 那一层就够了。\n\nDirectHit 在这里也安全：它只被 Nav02Gate 的 next 求值，而 Nav02Gate 每轮\n最多命中 max_hit 次，循环有刹车（见 Nav02Gate 的 doc）。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -417,7 +449,7 @@
             "Presence_SummonLove_Nav02Gate",
             "Presence_SummonLove_GiveUp"
         ],
-        "post_delay": 1200
+        "post_delay": 2000
     },
     "Presence_SummonLove_Nav03Reset": {
         "doc": "⭐⭐ **先无条件滑回顶部**，再交给下面往前扫描。\n\n═══ 为什么必须这样做（2026-09-19 实机踩到）═══\n右侧列的滑动位置是**滞留**的。第一次跑通了，第二次却失败了 —— 截图显示\n右侧列已经滑过头：「多元裂缝」的卡片滚出视野，只剩它的副标题残影留在顶部。\n而当时 Scroll 只会**往下**滑，永远回不到上面去，空转 8 轮后任务报错。\n\n滑动滞留意味着列表位置是**未知**的，所以扫描前必须先把它归零。\n归零方式是朝反方向连滑几次 —— 滑到顶之后继续滑是无效动作，天然安全。\n\n动作是「手指往下拖」(300→460)，内容跟着下移，露出上面被挡住的卡片。\n\n═══ 步长 160px，不是越大越好（用户提醒）═══\n一开始拖 280px，一步跨得太远 —— 卡片会整张从识别区跳过去。\n720px 的屏幕上一屏能看到约 3 张卡，160px 的步子刚好是三分之一屏，\n既不会漏也不会原地打转。",
@@ -578,22 +610,8 @@
             "Presence_WorldSoBig_Task"
         ]
     },
-    "Presence_WorldSoBig_Task": {
-        "doc": "TODO(待实现)：世界这么大。预期路线同使魔的爱，但入口在活动标签 → 右侧滚动栏「多元裂缝 / 虚轴之庭」。目前是空壳。",
-        "recognition": {
-            "type": "DirectHit",
-            "param": {}
-        },
-        "action": {
-            "type": "DoNothing",
-            "param": {}
-        },
-        "next": [
-            "Presence_ZhanLiBuQiang_Gate"
-        ]
-    },
     "Presence_ZhanLiBuQiang_Gate": {
-        "doc": "切点：每日任务「战力补强」——购买一件「礼包商店」中的商品。⚡ **真实消费**。\n\n默认是**跳过**（next 直指体力消耗切点），与界面默认值一致：这是**主号**，消耗性操作必须在界面上显式打开。打开后改写为 Presence_ZhanLiBuQiang_Task。",
+        "doc": "切点：每日任务「战力补强」——购买一件「礼包商店」中的商品。\n\n⭐ 买的是「零时馈礼」，标价 **×0 免费**（实测 2026-09-19），所以**默认是执行**。\n用户 2026-09-19 看着实机结果确认打开。\n\n⚠️ 注意同页的「月卡礼包」是 ￥30 真实货币 —— 本条链只认文字定位，不会点错，\n但换商品目标前必须先看清标价（见 Presence_ZhanLiBuQiang_Task 的 doc）。\n\n关闭时改写为 Presence_Resonance_Gate。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -603,17 +621,22 @@
             "param": {}
         },
         "next": [
-            "Daily_Stamina"
+            "Presence_ZhanLiBuQiang_Task"
         ]
     },
     "Presence_ZhanLiBuQiang_Task": {
-        "doc": "战力补强（每日任务：购买一件「礼包商店」中的商品）。\n\n路径（2026-09-19 实机走通）：首页 → 顶部「商店」→「礼包商店」卡片 → 左侧栏「吼美礼包」→ 下滑 → 「零时馈礼」→ 购买 → 弹窗「购买」→「提示 / 购买成功」→ 确定。\n\n═══ ⭐ 买的为什么是「零时馈礼」═══\n它标价 **×0，是免费的** —— 所以这个每日任务是**零成本**完成的。\n同一页的「月卡礼包」是 **¥30 真实货币**，绝不能碰；「日常补给包」要 ×6。\n这是本条链唯一的商品目标，**换商品前务必先看清标价**。\n\n═══ 「今天已完成」的判据 ═══\n买完之后「零时馈礼」整张卡**从列表里消失**（每日限购 1/1）。\n所以扫描时找不到它 = 今天已经买过 → 直接跳过，不会重复操作。\n\n═══ 从首页开始，不依赖前序状态 ═══\n用户明确要求：每个任务都要能从首页独立跑起来。本链第一步就是点「首页」，\n后面每一跳也都有明确判据，不假设上一步留下了什么。\n\n═══ ⚠️ 刻意不接通用弹窗节点 ═══\n「是否购买零时馈礼」那个弹窗里，购买 (527,458) 与取消 (757,458) 并列，\n都贴着 Common_NoticeConfirm 的 ROI [540,430,200,70] 边界 —— 通用节点点哪个看运气。\n用带文案校验的专属确认节点（同共鸣之力 / 使魔的爱）。\n\n本篇是**消耗性**操作，界面上默认关闭。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "doc": "战力补强（每日任务：购买一件「礼包商店」中的商品）。\n\n路径（2026-09-19 实机走通）：首页 → 顶部「商店」→「礼包商店」卡片 → 左侧栏「吼美礼包」→ 下滑 → 「零时馈礼」→ 购买 → 弹窗「购买」→「提示 / 购买成功」→ 确定。\n\n═══ ⭐ 买的为什么是「零时馈礼」═══\n它标价 **×0，是免费的** —— 所以这个每日任务是**零成本**完成的。\n同一页的「月卡礼包」是 **¥30 真实货币**，绝不能碰；「日常补给包」要 ×6。\n这是本条链唯一的商品目标，**换商品前务必先看清标价**。\n\n═══ 「今天已完成」的判据 ═══\n买完之后「零时馈礼」整张卡**从列表里消失**（每日限购 1/1）。\n所以扫描时找不到它 = 今天已经买过 → 直接跳过，不会重复操作。\n\n═══ 从首页开始，不依赖前序状态 ═══\n用户明确要求：每个任务都要能从首页独立跑起来。本链第一步就是点「首页」，\n后面每一跳也都有明确判据，不假设上一步留下了什么。\n\n═══ ⚠️ 刻意不接通用弹窗节点 ═══\n「是否购买零时馈礼」那个弹窗里，购买 (527,458) 与取消 (757,458) 并列，\n都贴着 Common_NoticeConfirm 的 ROI [540,430,200,70] 边界 —— 通用节点点哪个看运气。\n用带文案校验的专属确认节点（同共鸣之力 / 使魔的爱）。\n\n实测标价 ×0 免费，所以界面上**默认打开**（用户 2026-09-19 确认）。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "Custom",
             "param": {
                 "custom_action": "phase_begin",
-                "custom_action_param": {"phase": "战力补强"}
+                "custom_action_param": {
+                    "phase": "战力补强"
+                }
             }
         },
         "next": [
@@ -639,12 +662,14 @@
         },
         "action": {
             "type": "Click",
-            "param": {"target_offset": [
+            "param": {
+                "target_offset": [
                     0,
                     296,
                     0,
                     0
-                ]}
+                ]
+            }
         },
         "next": [
             "Presence_ZhanLiBuQiang_Confirm",
@@ -672,10 +697,12 @@
         },
         "action": {
             "type": "Click",
-            "param": {"target": [
+            "param": {
+                "target": [
                     527,
                     458
-                ]}
+                ]
+            }
         },
         "next": [
             "Presence_ZhanLiBuQiang_Success"
@@ -701,10 +728,12 @@
         },
         "action": {
             "type": "Click",
-            "param": {"target": [
+            "param": {
+                "target": [
                     640,
                     445
-                ]}
+                ]
+            }
         },
         "next": [
             "Presence_ZhanLiBuQiang_PhaseDone"
@@ -728,7 +757,10 @@
                 ]
             }
         },
-        "action": {"type": "Click", "param": {}},
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
         "next": [
             "Presence_ZhanLiBuQiang_PhaseDone"
         ],
@@ -737,31 +769,47 @@
     },
     "Presence_ZhanLiBuQiang_GiveUp": {
         "doc": "放弃点：导航没走通 / 找不到「零时馈礼」之后的落点。\n\n⚠️ 注意「找不到零时馈礼」**多半不是失败**，而是今天已经买过了（卡片会消失）。\n所以这里不报错、不终止，平静地交给下一个阶段。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "Presence_ZhanLiBuQiang_PhaseDone"
         ]
     },
     "Presence_ZhanLiBuQiang_PhaseDone": {
         "doc": "战力补强收尾：写完成状态，交给体力消耗。所有出口都汇到这里。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "Custom",
             "param": {
                 "custom_action": "phase_end",
-                "custom_action_param": {"phase": "战力补强"}
+                "custom_action_param": {
+                    "phase": "战力补强"
+                }
             }
         },
         "next": [
             "Daily_Stamina"
         ]
     },
-
     "Presence_ZhanLiBuQiang_Nav": {
         "doc": "导航到「吼美礼包」页。**从首页起步**（用户要求：每个任务独立可跑，不依赖前序状态）。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "Presence_ZhanLiBuQiang_Nav01Lobby"
         ]
@@ -782,7 +830,10 @@
                 ]
             }
         },
-        "action": {"type": "Click", "param": {}},
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
         "next": [
             "Presence_ZhanLiBuQiang_Nav02Shop"
         ],
@@ -805,7 +856,10 @@
                 ]
             }
         },
-        "action": {"type": "Click", "param": {}},
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
         "next": [
             "Presence_ZhanLiBuQiang_Nav03Gift"
         ],
@@ -828,7 +882,10 @@
                 ]
             }
         },
-        "action": {"type": "Click", "param": {}},
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
         "next": [
             "Presence_ZhanLiBuQiang_Nav04Houmei"
         ],
@@ -851,7 +908,10 @@
                 ]
             }
         },
-        "action": {"type": "Click", "param": {}},
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
         "next": [
             "Presence_ZhanLiBuQiang_Scan",
             "Presence_ZhanLiBuQiang_Nav05Scroll",
@@ -862,7 +922,10 @@
     },
     "Presence_ZhanLiBuQiang_Nav05Scroll": {
         "doc": "商品列表向下滑一屏，再找一次「零时馈礼」。\n\n整张列表只有两行卡片，滑 2-3 次一定到底；到底之后继续滑是无效动作，天然安全。\n步长 160px（沿用「使魔的爱」那条链踩出来的经验：步子太大会让卡片整张跳过识别区）。\n\n注意 x 取 640 —— 那是四列卡片之间的**空隙**，避免把滑动当成拖拽商品卡片。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "Swipe",
             "param": {
@@ -1225,5 +1288,473 @@
         ],
         "post_delay": 1200,
         "timeout": 4000
+    },
+    "Presence_WorldSoBig_Task": {
+        "doc": "世界那么大（每日任务：挑战一次「虚轴之庭」的任意关卡）。\\n\\n路径（2026-09-19 实机走通）：首页 → 顶部「战斗」→ 左侧竖栏「活动」→ 右列「多元裂缝」\\n→ 右列「虚轴之庭」→ 虚轴之庭页「出击」(680,525) → 关卡详情页「快捷战斗」(1018,653)\\n→ 确认框「确定」(557,470) → 结算页「确定」(790,615)。\\n\\n═══ ⭐ 与「使魔的爱」高度同构，弹窗处理完全一致 ═══\\n两者的关卡详情页、确认框、结算页**坐标与文案都一样**，所以 Quick / Confirm / Settle\\n三个节点是照着复制过来的，识别参数一字未改。\\n\\n═══ 免费 ═══\\n详情页显示「今日免费 6/6」，实测打完一次体力 1019 → 1019，**不扣体力**。\\n\\n═══ 从首页开始，不依赖前序状态 ═══\\n用户明确要求：每个任务都要能从首页独立跑起来。\\n\\n═══ ⚠️ 实机发现：虚轴之庭的「快捷战斗」是锁着的 ═══\\n按钮旁边写着「单关造成20亿伤害解锁」，当前是置灰状态，点了没反应。\\n所以候选列表里 Locked 排在最前面 —— 上锁就优雅跳过（见该节点的 doc）。\\n**本账号目前打不了这个每日**，要用通用战斗脚本手打 20 亿伤害才能解锁。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "phase_begin",
+                "custom_action_param": {
+                    "phase": "世界那么大"
+                }
+            }
+        },
+        "next": [
+            "Presence_WorldSoBig_Locked",
+            "Presence_WorldSoBig_Quick",
+            "Presence_WorldSoBig_Nav"
+        ]
+    },
+    "Presence_WorldSoBig_Quick": {
+        "doc": "关卡详情页的「快捷战斗」。命中即「今天还没打过」。\\n\\n⚠️ ROI 与「使魔的爱」那条相同：两个关卡的详情页按钮位置一致（实测 1015 vs 1018）。\\n\\n⚠️ `post_delay: 2500` 比使魔的爱那条长（那边 1200）—— 实机发现快捷战斗的确认框\\n有时渲染得比较慢，1200ms 时下一步的 Confirm 会读不到标题而失配。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    900,
+                    628,
+                    240,
+                    52
+                ],
+                "expected": [
+                    "快捷战斗"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Presence_WorldSoBig_Confirm",
+            "Presence_WorldSoBig_GiveUp"
+        ],
+        "post_delay": 2500,
+        "timeout": 3000
+    },
+    "Presence_WorldSoBig_Confirm": {
+        "doc": "⭐ 专属确认：**弹窗标题必须是「快捷战斗」才点「确定」**（(557,470)，写死）。\\n\\n⚠️ 为什么不能用 Common_NoticeConfirm：它那个 ROI [540,430,200,70] 同时罩住了本弹窗的\\n「确定」(557) 和「取消」(720)，点哪个全看 OCR 分数。同使魔的爱。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    570,
+                    255,
+                    160,
+                    45
+                ],
+                "expected": [
+                    "快捷战斗"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    557,
+                    470
+                ]
+            }
+        },
+        "next": [
+            "Presence_WorldSoBig_Settle",
+            "Presence_WorldSoBig_GiveUp"
+        ],
+        "post_delay": 2000,
+        "timeout": 4000
+    },
+    "Presence_WorldSoBig_Settle": {
+        "doc": "结算页，点底部「确定」(790,615)。\\n\\n⚠️ 这个确定不在 Common_NoticeConfirm 的 ROI 里（x 790 > 740），通用节点够不着。\\ntimeout 给到 8 秒等结算面板渲染。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    555,
+                    105,
+                    520,
+                    45
+                ],
+                "expected": [
+                    "战斗结算"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    790,
+                    615
+                ]
+            }
+        },
+        "next": [
+            "Presence_WorldSoBig_PhaseDone"
+        ],
+        "post_delay": 1200,
+        "timeout": 8000
+    },
+    "Presence_WorldSoBig_GiveUp": {
+        "doc": "放弃点：导航没走通 / 找不到「快捷战斗」（今天已打过）/ 弹窗没出现。\\n\\n⚠️ 它**不等于任务失败** —— 看状态文件时「世界那么大 done」只表示这一段走过去了。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Presence_WorldSoBig_PhaseDone"
+        ]
+    },
+    "Presence_WorldSoBig_PhaseDone": {
+        "doc": "世界那么大收尾：写完成状态，交给体力消耗阶段。所有出口都汇到这里。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "phase_end",
+                "custom_action_param": {
+                    "phase": "世界那么大"
+                }
+            }
+        },
+        "next": [
+            "Daily_Stamina"
+        ]
+    },
+    "Presence_WorldSoBig_Nav": {
+        "doc": "镜像「使魔的爱」的导航链，参数完全相同（战斗 → 退到主菜单 → 活动 → 多元裂缝）。\\n\\n⚠️ **两边必须同步改**：改使魔的爱那条链的 ROI / 延迟 / 步长时，这里要一起改。\\n之所以没做成共享子程序：Maa 的 [JumpBack] 要求子程序入口由 OCR 门控，\\n而这条链的入口「战斗」在每个页面都可见 —— 调用方返回后会立刻重新命中，直接死循环\\n（dev_loop.md §5.5 表格第一行那个「恒命中节点不要放进会被反复求值的 next」）。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Presence_WorldSoBig_Nav01Battle"
+        ]
+    },
+    "Presence_WorldSoBig_Nav01Battle": {
+        "doc": "导航第 1 步：点顶部「战斗」。ROI 右边界止于 840（右邻「装备」从 857 起）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    720,
+                    20,
+                    120,
+                    110
+                ],
+                "expected": [
+                    "战斗"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Presence_WorldSoBig_Nav02Gate",
+            "Presence_WorldSoBig_GiveUp"
+        ],
+        "post_delay": 1500,
+        "timeout": 4000
+    },
+    "Presence_WorldSoBig_Nav02Gate": {
+        "doc": "层级判定 + 退回循环的汇合点（同使魔的爱）。\\n\\n每轮：看左侧竖栏（主线/活动/挑战）在不在 —— 在就是主菜单，不在就是子页。\\n候选顺序：Activity（在就点）→ BackArrow（详情页走左上箭头）→ Up（子页点右上角面包屑）。\\n\\n⚠️ 详情页上面包屑是**灰的、点不动**，必须走左上角箭头 —— 2026-09-19 实测踩到，\\n当时循环空转 12 轮才放弃。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Presence_WorldSoBig_Nav02Activity",
+            "Presence_WorldSoBig_Nav02BackArrow",
+            "Presence_WorldSoBig_Nav02Up"
+        ],
+        "post_delay": 1000,
+        "max_hit": 12
+    },
+    "Presence_WorldSoBig_Nav02Activity": {
+        "doc": "主菜单左侧竖栏的「活动」。命中即点识别框中心（不写死坐标，整栏可能上下平移）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    10,
+                    150,
+                    180,
+                    240
+                ],
+                "expected": [
+                    "活动"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Presence_WorldSoBig_Nav03Reset"
+        ],
+        "post_delay": 1500,
+        "timeout": 3000
+    },
+    "Presence_WorldSoBig_Nav02BackArrow": {
+        "doc": "**关卡详情页专用**返回：点左上角箭头 (65,148)。\\n\\n判据「选择助战好友」是详情页独有、且两个详情页都有的文案。\\n不用模板匹配那个箭头 —— 它背后是角色立绘，背景每次都不同，匹配不稳。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    640,
+                    628,
+                    240,
+                    52
+                ],
+                "expected": [
+                    "选择助战好友"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    65,
+                    148
+                ]
+            }
+        },
+        "next": [
+            "Presence_WorldSoBig_Nav02Gate",
+            "Presence_WorldSoBig_GiveUp"
+        ],
+        "post_delay": 2000
+    },
+    "Presence_WorldSoBig_Nav02Up": {
+        "doc": "点右上角蓝色子菜单名按钮退回上一层 (1155,155)。**只对子页有效**。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    1155,
+                    155
+                ]
+            }
+        },
+        "next": [
+            "Presence_WorldSoBig_Nav02Gate",
+            "Presence_WorldSoBig_GiveUp"
+        ],
+        "post_delay": 2000
+    },
+    "Presence_WorldSoBig_Nav03Reset": {
+        "doc": "先无条件滑回右列顶部，再往前扫描。\\n\\n⚠️ 右列滑动位置是**滞留**的，位置未知，扫描前必须归零。\\n步长 160px / duration 300ms —— 两个值都是使魔的爱那条链实机试出来的：\\n步子太大会让卡片整张跳过识别区；duration 太长会被当成「按住拖拽」而不是滚动。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Swipe",
+            "param": {
+                "begin": [
+                    1000,
+                    300
+                ],
+                "end": [
+                    1000,
+                    460
+                ],
+                "duration": 300
+            }
+        },
+        "next": [
+            "Presence_WorldSoBig_Nav03ResetGate",
+            "Presence_WorldSoBig_Nav03Gate"
+        ],
+        "post_delay": 600
+    },
+    "Presence_WorldSoBig_Nav03ResetGate": {
+        "doc": "归零循环的汇合点：每滑一次找一次「多元裂缝」。max_hit 8 兜底。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Presence_WorldSoBig_Nav03Rift",
+            "Presence_WorldSoBig_Nav03Reset"
+        ],
+        "post_delay": 600,
+        "max_hit": 8
+    },
+    "Presence_WorldSoBig_Nav03Gate": {
+        "doc": "右列往前扫描「多元裂缝」的汇合点。找不到就往下滑一屏。max_hit 10。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Presence_WorldSoBig_Nav03Rift",
+            "Presence_WorldSoBig_Nav03Scroll",
+            "Presence_WorldSoBig_GiveUp"
+        ],
+        "post_delay": 800,
+        "max_hit": 10
+    },
+    "Presence_WorldSoBig_Nav03Rift": {
+        "doc": "右列里的「多元裂缝」。\\n\\n⚠️ ROI 罩满整个右列（y 140-660）—— 只开中间一条的话，卡片会整张从识别区跳过去。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    745,
+                    140,
+                    500,
+                    520
+                ],
+                "expected": [
+                    "多元裂缝"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Presence_WorldSoBig_Nav04Pick"
+        ],
+        "post_delay": 1500,
+        "timeout": 3000
+    },
+    "Presence_WorldSoBig_Nav03Scroll": {
+        "doc": "右列往下滑一屏。x 取 1000（卡片间的纵向带），避免被当成拖拽卡片。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Swipe",
+            "param": {
+                "begin": [
+                    1000,
+                    460
+                ],
+                "end": [
+                    1000,
+                    300
+                ],
+                "duration": 300
+            }
+        },
+        "next": [
+            "Presence_WorldSoBig_Nav03Gate"
+        ],
+        "post_delay": 800
+    },
+    "Presence_WorldSoBig_Nav04Pick": {
+        "doc": "多元裂缝页右列的「虚轴之庭」（第一张卡）。\\n\\n⚠️ ROI 从 y 180 起 —— 避开上方 y 125-185 那个子菜单面包屑的同名文字。\\n⚠️ 这一步是本链与「使魔的爱」的**差异点之一**：那边点左侧「使魔的爱」。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    745,
+                    180,
+                    500,
+                    180
+                ],
+                "expected": [
+                    "虚轴之庭"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Presence_WorldSoBig_Nav05Sortie",
+            "Presence_WorldSoBig_GiveUp"
+        ],
+        "post_delay": 1500,
+        "timeout": 3000
+    },
+    "Presence_WorldSoBig_Nav05Sortie": {
+        "doc": "虚轴之庭页的「出击」按钮，**写死坐标 (680,525) 直接点**，不做识别。\\n\\n═══ 为什么不用 OCR（2026-09-19 实测 + 用户拍板）═══\\n这个按钮上的文字是**斜排**的，OCR 会把它拆成两个框：\\n    「出」 box=[646,481,70,66]    「击」 box=[682,526,38,39]\\n没有任何一个框含完整的「出击」，expected 写全词**永远匹配不上** ——\\n表现是这一步静默失配、整个任务被跳过。写单字又要担心别处误匹配。\\n所以按用户的意见直接定死位置，省掉这层麻烦。\\n\\n═══ 安全性由前置条件保证 ═══\\n上一步 Nav04Pick 已经**用文字识别确认**点进了「虚轴之庭」页，\\n而在那一页上 (680,525) 就是「出击」。不需要这一层再验一次。\\n⚠️ 如果哪天游戏改了虚轴之庭页的布局，这里要跟着改 —— 它是本链唯一\\n没有识别兜底的节点。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    680,
+                    525
+                ]
+            }
+        },
+        "next": [
+            "Presence_WorldSoBig_Quick",
+            "Presence_WorldSoBig_GiveUp"
+        ],
+        "post_delay": 2000,
+        "timeout": 4000
+    },
+    "Presence_WorldSoBig_Locked": {
+        "doc": "⭐⭐ **「快捷战斗」被锁时的拦截**（2026-09-19 实测发现）。\\n\\n═══ 现象 ═══\\n虚轴之庭关卡详情页上，「快捷战斗」按钮旁边写着\\n    「单关造成20亿伤害解锁」\\n此时按钮是**置灰的**：OCR 照样能读到「快捷战斗」四个字，但点下去毫无反应。\\n这正是本项目早就记录过的坑 —— 「OCR 读得到文字 ≠ 按钮可点」。\\n不拦的话，Quick 会命中、点击、什么也不发生，然后 Confirm 失配，\\n整条链浪费一轮才放弃。\\n\\n═══ 判据 ═══\\n用「解锁」两个字。它在按钮右侧的说明文字里，锁着的时候出现，解锁后消失。\\n⚠️ 只写「解锁」不写全句：整句会被 OCR 拆成多段，取尾部稳定子串更保险\\n（同 App_TapTitle 用「屏幕继续」的写法）。\\n\\n═══ ⚠️ 这意味着什么 ═══\\n**本账号目前打不了「世界那么大」** —— 快捷战斗锁着，只能走通用战斗脚本\\n手动打（20 亿伤害），而那条路还没实现。所以现在这条链遇到上锁会优雅跳过，\\n「世界那么大」保持未完成状态，不会误报成功。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    860,
+                    590,
+                    320,
+                    50
+                ],
+                "expected": [
+                    "解锁"
+                ]
+            }
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Presence_WorldSoBig_GiveUp"
+        ],
+        "post_delay": 500,
+        "timeout": 2000
     }
 }
