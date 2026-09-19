@@ -369,7 +369,7 @@
         "timeout": 3000
     },
     "Stamina_Arrived": {
-        "doc": "TODO(下一步)：**这里接刷关循环**。\n\n现在停在「喵王の福利」的关卡详情页 —— 本步只做「导航到关卡」这件事。\n下一步要接的是：\n  · 快捷战斗（若可用）刷 N 次，N 由「体力目标」折算\n  · 或者接通用通关脚本 Battle_ClearStage（需先把它从「终止型」改成可返回的子程序）\n\n⚠️ Battle_ClearStage 的终点 Battle_ClearStage_Finish 的 next 是空的 ——\n它被设计成独立任务的入口，**直接当子程序用会终止整条任务**，接之前要先处理。",
+        "doc": "关卡已选好，**接通用通关脚本开始刷**。\n\n═══ 为什么是 [JumpBack]（2026-09-20）═══\nBattle_ClearStage_Finish 的 next 是空的 —— 那是「下降终点」，会**终止整条任务**。\n直接当普通 next 接上去，刷完一次战斗后面所有阶段都不会跑了。\n用 [JumpBack] 调用之后，子程序里那个空 next 就变成「返回调用方」。\n\n子程序回来后，本节点重新求值 next：\n  · Battle_ClearStage 已经 max_hit 耗尽 → 失配\n  · 于是落到 Stamina_PhaseDone → 交给共鸣之力\n这就是「刷完就往下走」的机制，不需要额外判断。\n\n═══ 刷几次 ═══\n由「刷关次数」子选项决定 —— 它覆盖 Battle_ClearStage_Count.max_hit。\n（「体力目标」那几个档位暂时没接上：要用它折算次数得先实现\n plan_stamina_runs 这个 CustomAction，留待下一步。）",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -379,6 +379,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Battle_ClearStage",
             "Stamina_PhaseDone"
         ]
     },

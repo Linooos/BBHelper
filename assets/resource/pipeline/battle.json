@@ -1,6 +1,6 @@
 {
     "Battle_ClearStage": {
-        "doc": "**通用通关脚本的总入口**。\n\n⚠️ 起点是「**已经选定关卡之后**」，即停在**关卡详情页**。选哪一关由调用方决定，选定后再跑这个脚本（不刷关时只跑一遍的用法）。\n\n支持：只刷一遍 / 刷指定次数（`Battle_ClearStage_Loop.max_hit`，由 interface.json 的「刷关次数」覆盖）/ 关头关尾都可用双倍券 / 全部刷完后点「确定」收尾。",
+        "doc": "**通用通关脚本的总入口**。\n\n⚠️ 起点是「**已经选定关卡之后**」，即停在**关卡详情页**。选哪一关由调用方决定，选定后再跑这个脚本（不刷关时只跑一遍的用法）。\n\n支持：只刷一遍 / 刷指定次数（`Battle_ClearStage_Loop.max_hit`，由 interface.json 的「刷关次数」覆盖）/ 关头关尾都可用双倍券 / 全部刷完后点「确定」收尾。\n\n═══ ⚠️ max_hit: 1 —— 让它能当 [JumpBack] 子程序用（2026-09-20）═══\n本节点是 DirectHit（恒命中）。当它被 [JumpBack] 调用时，调用方返回后会\n**直接重新命中它** → 死循环（dev_loop §5.9①）。\n加 max_hit: 1 之后，第二次重入就失配，调用方得以继续往下走。\n独立任务「通用通关」也是从这里进的，只进一次 —— 不受影响。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -11,7 +11,8 @@
         },
         "next": [
             "Battle_ClearStage_Cycle"
-        ]
+        ],
+        "max_hit": 1
     },
     "Battle_ClearStage_Finish": {
         "doc": "全部刷完后收尾：点结算面板的「确定」，离开结算界面。\n\n走到这里说明循环已经跑完最后一轮的战斗，且**最后一轮结束后不会再点「再次挑战」**（因为 Round 不会再被调度），所以此时停在结算面板上。",
@@ -617,7 +618,7 @@
         "max_hit": 1
     },
     "Battle_ClearStage_Cycle": {
-        "doc": "计数与收尾的汇合点。每轮干完活都回到这里重新求值：计数器还能命中就再来一轮，计数器 max_hit 用尽后落到 Finish 收尾。",
+        "doc": "计数与收尾的汇合点。每轮干完活都回到这里重新求值：计数器还能命中就再来一轮，计数器 max_hit 用尽后落到 Finish 收尾。\n\n⚠️ 末尾挂 Battle_ClearStage_Done：原本只有 [Count, Finish] 两个候选，\n全失配会让整条任务报错。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -628,7 +629,20 @@
         },
         "next": [
             "Battle_ClearStage_Count",
-            "Battle_ClearStage_Finish"
+            "Battle_ClearStage_Finish",
+            "Battle_ClearStage_Done"
         ]
+    },
+    "Battle_ClearStage_Done": {
+        "doc": "**子程序终点**（DirectHit + next:[]）。\n\n它有两个作用：\n  1. 当兜底 —— Cycle 的候选原本只有 [Count, Finish]，两个都失配就会让\n     整条任务报错（§5.9②）。挂上本节点后永不空手而归。\n  2. 作为 [JumpBack] 子程序的正式出口 —— 在 JumpBack 边界内，\n     空 next 的含义是「子程序结束、返回调用方」，不是「终止任务」。\n\n⚠️ 单独跑「通用通关」这个任务时，走到这里就等于正常结束。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": []
     }
 }
