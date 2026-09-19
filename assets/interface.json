@@ -35,24 +35,34 @@
             ]
         }
     ],
-    // Agent 配置。**这里是开发期路径**：interface.json 在 assets/ 下，而 agent/ 在仓库根，
-    // 所以用 ../agent/main.py。调用方以 interface.json 所在目录为 CWD 启动 Agent，
-    // 因此 ./agent/main.py 会落到 assets/agent/（不存在）。
+    // ════════════════════════════════════════════════════════════════
+    //  Agent 配置 —— 开发期**必须保持注释状态**，不要取消注释。
     //
-    // ⚠️ 发布布局不同：tools/install.py 把 assets/interface.json 和 agent/ 平铺到 install/ 根，
-    //    那时必须改回 ./agent/main.py。**install.py 已包含这个改写步骤**，不要手动改。
+    //  Maa Pipeline Support 插件的行为（源码 `buildRuntime`）：
+    //      result.agent = [];
+    //      for (const agent of agents) {
+    //          if (!agent.child_exec) continue;   // 没填 child_exec 就整个跳过
+    //          ...
+    //      }
+    //  也就是说：**不填 agent 块时，插件走自己的机制**（VS Code 的 `maa-launch`
+    //  debug session，用你选定的 Python 解释器启动 AgentServer），本来就能用。
+    //  一旦填了 child_exec，反而会被拽去「用终端命令启动」那条路 —— 那条路依赖
+    //  系统 PATH 上有可用的 python，本机没有，于是连环报
+    //  「Python was not found」/「No module named 'maa'」。
     //
-    // ⚠️ child_exec 写死项目 venv 的解释器，不要用裸 "python"：
-    //    本机没有系统 Python，而 PATH 里的 ...\WindowsApps\python.exe 只是个
-    //    Microsoft Store 转接存根（AppInstallerPythonRedirector.exe），命中了也没有 maa 模块。
-    //    路径同样相对 interface.json 所在目录（assets/），所以是 ../.venv/...。
-    //    发布时必须由 install.py 改写回 "python"（产物附带便携解释器或依赖用户环境）。
-    "agent": {
-        "child_exec": "../.venv/Scripts/python.exe",
-        "child_args": [
-            "../agent/main.py"
-        ]
-    },
+    //  ⚠️ 但**发布产物需要这个块**：MFAAvalonia 靠它启动 AgentServer，
+    //     否则所有 CustomRecognition / CustomAction 节点都会失效。
+    //     所以由 tools/install.py 在打包时写入（见该脚本的 install_resource）。
+    //
+    //  发布期形态（供参考，不要手工启用）：
+    //      "agent": { "child_exec": "python", "child_args": ["./agent/main.py"] }
+    // ════════════════════════════════════════════════════════════════
+    // "agent": {
+    //     "child_exec": "python",
+    //     "child_args": [
+    //         "./agent/main.py"
+    //     ]
+    // },
     "task": [
         {
             "name": "日常清理",

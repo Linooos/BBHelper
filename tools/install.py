@@ -118,21 +118,18 @@ def install_resource():
 
     interface["version"] = version
 
-    # 开发期 interface.json 在 assets/ 下、agent/ 在仓库根，所以 child_args 写的是
-    # ../agent/main.py、child_exec 写的是 ../.venv/Scripts/python.exe；
-    # 发布布局把 interface.json 和 agent/ 平铺到 install/ 根，调用方又以
-    # interface.json 所在目录为 CWD，因此这里必须改回发布期写法。
-    agent = interface.get("agent")
-    if isinstance(agent, dict):
-        args = agent.get("child_args")
-        if isinstance(args, list):
-            agent["child_args"] = [
-                a.replace("../agent/", "./agent/") if isinstance(a, str) else a
-                for a in args
-            ]
-        # 开发期指向项目 venv 的解释器；发布期交回 "python"
-        if isinstance(agent.get("child_exec"), str) and ".venv" in agent["child_exec"]:
-            agent["child_exec"] = "python"
+    # Agent 块：开发期在 assets/interface.json 里是**注释掉的**
+    # （取消注释会让 VS Code 的 Maa Pipeline Support 插件改走「终端命令启动」那条路，
+    #   而本机没有系统 python，会连环报 Python not found / No module named 'maa'）。
+    # 但发布产物**必须**有这个块 —— MFAAvalonia 靠它启动 AgentServer，
+    # 否则所有 CustomRecognition / CustomAction 节点都会失效。所以这里补上。
+    #
+    # 路径用 ./agent/main.py：install_agent() 会把 agent/ 拷到 install/agent/，
+    # 与 interface.json 平级；调用方以 interface.json 所在目录为 CWD。
+    interface["agent"] = {
+        "child_exec": "python",
+        "child_args": ["./agent/main.py"],
+    }
 
     with open(install_path / "interface.json", "w", encoding="utf-8") as f:
         jsonc.dump(interface, f, ensure_ascii=False, indent=4)

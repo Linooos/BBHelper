@@ -124,7 +124,7 @@ uv pip install Pillow
 
 > **Pillow 只是开发期工具**：用来把实机截图裁成 `assets/resource/image/` 下的模板图。
 > 它不被 `agent/` 导入，也不进发布产物，所以不影响打包。
-
+>
 > ⚠️ `AgentClient` 的 `identifier` / `connected` / `custom_recognition_list` /
 > `custom_action_list` 都是 **property，不是方法**；`connect()` / `bind()` /
 > `disconnect()` 才是方法。`TaskDetail.status` 是 `Status` 对象，用
@@ -148,52 +148,54 @@ uv pip install Pillow
 > 不影响插件。三者分工：插件（交互调试）＞ `dev_run.py`（命令行批量验证）＞
 > MaaMCP（纯 OCR/模板匹配的快速探查）。
 
-配置时踩了两个坑：
+### ⚠️ 开发期保持 `interface.json` 的 `agent` 块为**注释状态**
 
-**坑一：`child_exec` 不能用裸 `python`**
+这是最容易踩的坑，而且我踩过：给 `agent` 块填上 `child_exec` 之后，
+插件反而连环报 `Python was not found` / `ModuleNotFoundError: No module named 'maa'`。
+**取消注释才是错的。**
 
-本机没有系统 Python；uv 管的解释器也不在 PATH 上。而
-`C:\Users\...\AppData\Local\Microsoft\WindowsApps\python.exe` 只是个
-**Microsoft Store 转接存根**（`AppInstallerPythonRedirector.exe`）：
+原因在插件源码 `buildRuntime`：
 
-- 没有 venv 时 → 报「Python was not found」；
-- 命中了别的解释器时 → 报 `ModuleNotFoundError: No module named 'maa'`
-  （**同一个症状的两种表现，根因都是解释器不对**）。
-
-**修法：`child_exec` 直接写死项目 venv 的解释器**，路径同样相对 interface.json 所在目录：
-
-```jsonc
-"agent": {
-    "child_exec": "../.venv/Scripts/python.exe",
-    "child_args": ["../agent/main.py"]
+```js
+result.agent = [];
+for (const agent of agents) {
+    if (!agent.child_exec) continue;   // 没填 child_exec 就整个跳过
+    ...
 }
 ```
 
-发布时由 `tools/install.py` 改回 `"python"`（见下）。
+- **不填 `agent` 块** → 插件**跳过**它，改走自己的机制：VS Code 的 `maa-launch`
+  debug session，用你（或 Python 扩展）选定的解释器启动 AgentServer。**本来就能用。**
+- **填了 `child_exec`** → 被拽去「用终端命令启动」那条路，而那条路依赖系统 PATH 上
+  有可用的 `python`。本机没有系统 Python，PATH 上的
+  `C:\Users\...\AppData\Local\Microsoft\WindowsApps\python.exe` 又只是个
+  **Microsoft Store 转接存根**（`AppInstallerPythonRedirector.exe`），于是：
+  - 没命中任何解释器 → `Python was not found`
+  - 命中了别的解释器 → `No module named 'maa'`
 
-> ❌ 试过但**不要**依赖的做法：在 `.vscode/settings.json` 里用
-> `terminal.integrated.env.windows` 给终端补 PATH。实测不可靠 ——
-> 它需要 VS Code 重载，而且终端任务未必按预期继承。`.vscode/settings.json`
-> 里那条设置现在只作为「在 VS Code 终端里手敲 python 也能用」的便利项保留。
+**两种报错同一个根因：走了不该走的那条启动路径。**
 
-**坑二：开发布局与发布布局不一致，`./agent/main.py` 落错地方** ⚠️
+> 同时也要注意 **开发布局与发布布局不一致**：调用方以 interface.json 所在目录为 CWD，
+> 开发布局下 `./agent/main.py` 会解析成 `assets/agent/main.py`（不存在）。
+> 表现就是插件去跑了一份 `agent/` 的**副本**。**千万别复制 agent/ 到 assets/ 下** ——
+> 两份代码以后必然漂移，改了这份跑那份，极难排查。
 
-调用方以 **interface.json 所在目录为 CWD** 启动 Agent：
+### 发布产物需要 `agent` 块
 
-| | interface.json | agent/ | `./agent/main.py` 解析成 |
-| --- | --- | --- | --- |
-| 发布布局 | `install/` | `install/agent/` | ✅ |
-| **开发布局** | `assets/` | `<仓库根>/agent/` | ❌ `assets/agent/main.py` |
+MFAAvalonia 靠它启动 AgentServer，没有的话所有 `CustomRecognition` /
+`CustomAction` 节点都会失效。所以由 `tools/install.py` 在打包时写入
+（`install_resource` 里，与改写 `version` 放在一起）：
 
-所以本仓库的 `child_args` 写的是 **`../agent/main.py`**（开发期路径），
-由 `tools/install.py` 在打包时改回 `./agent/main.py`。
-
-**不要**为了绕过它把 `agent/` 复制一份到 `assets/agent/` —— 那会造成两份代码，
-以后改了一份、跑的是另一份，极难排查。
+```python
+interface["agent"] = {
+    "child_exec": "python",
+    "child_args": ["./agent/main.py"],
+}
+```
 
 > 插件另有个 `{PROJECT_DIR}` 变量（= interface.json 所在目录）可用，
 > 但那是**插件私有**变量，MaaFramework 本体不认，会把 interface.json 弄成插件专用。
-> 所以还是走「开发期路径 + 打包时改写」。
+> 本项目不用它。
 
 ---
 
@@ -216,6 +218,7 @@ uv pip install Pillow
 pipeline 里用 `"template": "<subcategory>/<name>.png"` 引用。
 
 > 已入库模板：
+>
 > - `Lobby/TaskCenterIcon.png` —— 大厅左侧任务中心图标（实测 score 1.0）。
 >   裁剪时已剔除右上角通知红点，避免红点出现/消失导致失配。
 > - `Battle/VictoryFigure.png` —— 通关的「胜利」图案（兜底判据，见 game_recon.md）。
@@ -281,7 +284,7 @@ src.crop((x0, y0, x1, y1)).save(r"D:\...\debug\tpl\name.png")
 所以「点首页」从哪儿都能回大厅；回到大厅后任务中心图标必然可匹配。
 也就是说**根本不需要降级分支**——一条直线就够了，每步的 `next` 指向下一步：
 
-```
+```text
 <Phase>_Entry.next = ["<Phase>_Work", "<Phase>_Nav"]     # 先试活，已在目标页就直接干
 <Phase>_Nav:          DirectHit → next: ["<Phase>_Nav01Lobby"]
 <Phase>_Nav01Lobby:   OCR「首页」→ Click → next: ["<Phase>_Nav02TaskCenter"]
@@ -290,6 +293,7 @@ src.crop((x0, y0, x1, y1)).save(r"D:\...\debug\tpl\name.png")
 ```
 
 要点：
+
 1. **每一步的 `next` 都必须非空**（空 next 是「下降」终点，会终止整条任务）。
 2. **导航只在阶段入口走一次**，循环体（`<Phase>_Loop`）里绝不放导航节点，
    否则「活干完了、识别不到」时会把导航反复重跑。
@@ -300,7 +304,7 @@ src.crop((x0, y0, x1, y1)).save(r"D:\...\debug\tpl\name.png")
 
 改完之后整个日常流程的命中轨迹变成**每个节点恰好一次、零空转**：
 
-```
+```text
 Daily_CleanUp → Mail_Entry → Mail_Loop → Mail_PhaseDone
 → Summon_Entry → Summon_Nav(+3步) → Summon_Loop → Summon_Settle → Summon_PhaseDone
 → Presence_Entry → Presence_Nav(+3步) → Presence_Loop → Presence_ClaimMilestone
