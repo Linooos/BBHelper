@@ -6,8 +6,11 @@
             "param": {}
         },
         "action": {
-            "type": "DoNothing",
-            "param": {}
+            "type": "Custom",
+            "param": {
+                "custom_action": "phase_begin",
+                "custom_action_param": {"phase": "邮件"}
+            }
         },
         "next": [
             "Mail_Loop",
@@ -193,8 +196,11 @@
             "param": {}
         },
         "action": {
-            "type": "DoNothing",
-            "param": {}
+            "type": "Custom",
+            "param": {
+                "custom_action": "phase_end",
+                "custom_action_param": {"phase": "邮件"}
+            }
         },
         "next": [
             "Daily_Summon"

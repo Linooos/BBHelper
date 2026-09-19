@@ -2,7 +2,13 @@
     "Stamina_Entry": {
         "doc": "体力消耗循环。一次完成三条「累计消耗体力」的每日任务：千锤百炼 200 / 勤劳的魔女 180 / 精益求精 300，刷满 300 即可同时完成。循环本体是纯 next 自环，Python 只负责读进度、记次数、判断该不该停。阶段 5 实现，依赖阶段 4 的战斗页结论——目前尚不知道哪个关卡支持「快捷战斗」且可重复刷，在确认之前保持直通，绝不盲点坐标。",
         "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "phase_begin",
+                "custom_action_param": {"phase": "体力消耗"}
+            }
+        },
         "next": ["Stamina_PhaseDone"]
     },
 
@@ -27,7 +33,13 @@
     "Stamina_PhaseDone": {
         "doc": "体力阶段结束，交给共鸣之力切点（体力在任务清单里排在共鸣之力前面）。",
         "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "phase_end",
+                "custom_action_param": {"phase": "体力消耗"}
+            }
+        },
         "next": ["Presence_Resonance_Gate"]
     }
 }

@@ -6,8 +6,11 @@
             "param": {}
         },
         "action": {
-            "type": "DoNothing",
-            "param": {}
+            "type": "Custom",
+            "param": {
+                "custom_action": "phase_begin",
+                "custom_action_param": {"phase": "使魔探险"}
+            }
         },
         "next": [
             "Summon_Claim",
@@ -259,8 +262,11 @@
             "param": {}
         },
         "action": {
-            "type": "DoNothing",
-            "param": {}
+            "type": "Custom",
+            "param": {
+                "custom_action": "phase_end",
+                "custom_action_param": {"phase": "使魔探险"}
+            }
         },
         "next": [
             "Presence_SummonLove_Gate"

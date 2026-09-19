@@ -126,8 +126,11 @@
             "param": {}
         },
         "action": {
-            "type": "DoNothing",
-            "param": {}
+            "type": "Custom",
+            "param": {
+                "custom_action": "phase_begin",
+                "custom_action_param": {"phase": "收尾领奖"}
+            }
         },
         "next": [
             "Presence_ClaimMilestone",
@@ -141,8 +144,11 @@
             "param": {}
         },
         "action": {
-            "type": "DoNothing",
-            "param": {}
+            "type": "Custom",
+            "param": {
+                "custom_action": "phase_end",
+                "custom_action_param": {"phase": "收尾领奖"}
+            }
         },
         "next": [
             "Daily_Weekly"
@@ -194,7 +200,13 @@
     "Presence_Resonance_Task": {
         "doc": "共鸣之力：刷新一次「共鸣屋」中的商品。\n\n路径（2026-09-19 实机走通）：顶部「商店」→ 店铺网格右上角的「崩坏屋」卡片 → 左侧栏「共鸣屋」→ 点刷新按钮 → 弹「提示」→ 点「确定」。已实测：免费刷新两次（3次→2次→1次→0次），商品每次都整批换新。\n\n═══ 免费 / 付费的判定（用户 2026-09-19 纠正）═══\n判据是刷新按钮左边那行字的**数字**，不是弹窗文案：\n    N >= 1  → 走免费次数，不消耗任何东西\n    N == 0  → 消耗**零时之种**（紫色代币，左侧显示当前数量）\n\n⚠️ 而且 N 归零时**整行标签会换掉**：\n    「剩余次数 N次」  →  「消耗1零时之种」\n所以所有 OCR 判据都必须同时认这两种形态（见 Do 节点）。\n\n数字比较由 CustomRecognition `resonance_free_left` 完成（见 FreeGate）——\n光靠 OCR 命中文本判断不了数字大小。\n\n本任务在界面上默认关闭；子选项「使用代币刷新」默认也关闭，即**次数归零就不刷**。\n\n【页面滞留】进崩坏屋会直接落在**上次访问的子页**。上次是共鸣屋就直接可用；不是则靠 Nav03Resonance 补一步。",
         "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "phase_begin",
+                "custom_action_param": {"phase": "共鸣之力"}
+            }
+        },
         "next": [
             "Presence_Resonance_Do",
             "Presence_Resonance_Nav"
@@ -298,7 +310,7 @@
                 ]}
         },
         "next": [
-            "Daily_ClaimRewards"
+            "Presence_Resonance_PhaseDone"
         ],
         "post_delay": 800,
         "timeout": 3000
@@ -327,7 +339,7 @@
                 ]}
         },
         "next": [
-            "Daily_ClaimRewards"
+            "Presence_Resonance_PhaseDone"
         ],
         "post_delay": 800,
         "timeout": 3000
@@ -350,7 +362,7 @@
         },
         "action": {"type": "Click", "param": {}},
         "next": [
-            "Daily_ClaimRewards"
+            "Presence_Resonance_PhaseDone"
         ],
         "post_delay": 800,
         "timeout": 3000
@@ -359,6 +371,20 @@
         "doc": "放弃点：导航没走通或弹窗没出现时的收尾。宁可这一次不刷，也不要把整条日常炸掉（§5.9② 的「next 全失配 → 整条任务报错」）。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "Presence_Resonance_PhaseDone"
+        ]
+    },
+    "Presence_Resonance_PhaseDone": {
+        "doc": "共鸣之力阶段收尾：写完成状态，然后交给收尾领奖。\n\n四类出口（ConfirmFree / ConfirmPaid / Abort / 后面新增的）都汇到这里，\n好处是**阶段完成状态只在一个地方写** —— 不用在每个出口重复挂 phase_end。\n这也是本项目「汇合点」模式的又一次应用（同 Battle_ClearStage_Cycle）。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "phase_end",
+                "custom_action_param": {"phase": "共鸣之力"}
+            }
+        },
         "next": [
             "Daily_ClaimRewards"
         ]

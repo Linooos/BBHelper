@@ -461,3 +461,6 @@ debug
 .mcp.json
 # Python venv (project-local, dev only)
 .venv/
+
+# 阶段完成状态记录（agent/my_state.py 写出的运行时数据）
+state/

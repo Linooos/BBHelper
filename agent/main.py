@@ -5,6 +5,7 @@ from maa.toolkit import Toolkit
 
 import my_action
 import my_reco
+import my_state  # noqa: F401  只为触发 @AgentServer.custom_action 注册
 
 
 def main():
