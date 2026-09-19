@@ -91,6 +91,8 @@
                 "世界那么大",
                 "战力补强",
                 "体力消耗",
+                "关卡来源",
+                "预设关卡",
                 "体力目标",
                 "共鸣之力",
                 "领取以上任务奖励",
@@ -427,6 +429,58 @@
                             "next": [
                                 "Presence_Resonance_Gate"
                             ]
+                        }
+                    }
+                }
+            ]
+        },
+        // 「体力消耗」的两个子选项：先选用哪种关卡来源，预设时再选具体关卡。
+        // 自定义关卡只是占位 —— 内容待补。
+        "关卡来源": {
+            "type": "switch",
+            "description": "体力消耗去刷哪个关卡。\n\n**预设关卡** = 从下面的「预设关卡」下拉里选一个（目前只有喵王の福利）。\n**自定义关卡** = ⬜ **尚未实现**：内容待补，选它现在不会有任何动作。\n\n只在「体力消耗」打开时才显示。",
+            "default_case": "Yes",
+            "cases": [
+                {
+                    "name": "Yes",
+                    // case 也支持 label —— 用 Yes/No 之外的词让界面更直白
+                    "label": "预设关卡",
+                    "option": [
+                        "预设关卡"
+                    ]
+                },
+                {
+                    "name": "No",
+                    "label": "自定义关卡（未实现）"
+                }
+            ]
+        },
+        // 预设关卡列表。每个 case 覆盖 Stamina_PickStage 的**识别文本**和**点击坐标** ——
+        // 加一个新关卡 = 在这里加一条，管线不用动。
+        "预设关卡": {
+            "type": "select",
+            "description": "要刷的预设关卡。\n\n选中后脚本会导航到它：战斗 → 活动 → 多元裂缝 → 曜日挑战 → 该关卡。\n\n加新关卡的写法见 `presence.json` 里 `Stamina_PickStage` 的 doc（改 expected 和 target 两个字段）。",
+            "default_case": "喵王の福利",
+            "cases": [
+                {
+                    "name": "喵王の福利",
+                    "pipeline_override": {
+                        "Stamina_PickStage": {
+                            "recognition": {
+                                "param": {
+                                    "expected": [
+                                        "喵王の福利"
+                                    ]
+                                }
+                            },
+                            "action": {
+                                "param": {
+                                    "target": [
+                                        640,
+                                        305
+                                    ]
+                                }
+                            }
                         }
                     }
                 }

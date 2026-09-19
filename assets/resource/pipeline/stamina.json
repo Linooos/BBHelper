@@ -1,20 +1,30 @@
 {
     "Stamina_Entry": {
-        "doc": "体力消耗循环。一次完成三条「累计消耗体力」的每日任务：千锤百炼 200 / 勤劳的魔女 180 / 精益求精 300，刷满 300 即可同时完成。循环本体是纯 next 自环，Python 只负责读进度、记次数、判断该不该停。阶段 5 实现，依赖阶段 4 的战斗页结论——目前尚不知道哪个关卡支持「快捷战斗」且可重复刷，在确认之前保持直通，绝不盲点坐标。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "doc": "体力消耗循环。一次完成三条「累计消耗体力」的每日任务：\n千锤百炼 200 / 勤劳的魔女 180 / 精益求精 300，刷满 300 即可同时完成。\n\n═══ 本次实现的范围（2026-09-20）═══\n只做**导航到关卡**这一段：首页/战斗 → 活动 → 多元裂缝 → 曜日挑战 → 喵王の福利。\n刷关循环本体见 Stamina_Arrived 的 TODO。\n\n结构同其他链：先试活（已经停在关卡页就直接选），不中再走导航。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "Custom",
             "param": {
                 "custom_action": "phase_begin",
-                "custom_action_param": {"phase": "体力消耗"}
+                "custom_action_param": {
+                    "phase": "体力消耗"
+                }
             }
         },
-        "next": ["Stamina_PhaseDone"]
+        "next": [
+            "Stamina_PickStage",
+            "Stamina_Nav"
+        ]
     },
-
     "Stamina_Plan": {
         "doc": "读存在感进度 X/300，算出需要刷几次。只写内存状态，不点击任何东西。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "Custom",
             "param": {
@@ -27,19 +37,363 @@
                 }
             }
         },
-        "next": ["Stamina_PhaseDone"]
+        "next": [
+            "Stamina_PhaseDone"
+        ]
     },
-
     "Stamina_PhaseDone": {
         "doc": "体力阶段结束，交给共鸣之力切点（体力在任务清单里排在共鸣之力前面）。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "Custom",
             "param": {
                 "custom_action": "phase_end",
-                "custom_action_param": {"phase": "体力消耗"}
+                "custom_action_param": {
+                    "phase": "体力消耗"
+                }
             }
         },
-        "next": ["Presence_Resonance_Gate"]
+        "next": [
+            "Presence_Resonance_Gate"
+        ]
+    },
+    "Stamina_Nav": {
+        "doc": "导航到「曜日挑战 → 喵王の福利」关卡详情页。镜像「多元裂缝」那条链。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Stamina_Nav01Battle"
+        ]
+    },
+    "Stamina_Nav01Battle": {
+        "doc": "导航第 1 步：点顶部「战斗」。ROI 右边界止于 840（右邻「装备」从 857 起）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    720,
+                    20,
+                    120,
+                    110
+                ],
+                "expected": [
+                    "战斗"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Stamina_Nav02Gate",
+            "Stamina_GiveUp"
+        ],
+        "post_delay": 1500,
+        "timeout": 4000
+    },
+    "Stamina_Nav02Gate": {
+        "doc": "层级判定 + 退回循环的汇合点（同使魔的爱 / 世界那么大）。\n\n每轮：看左侧竖栏（主线/活动/挑战）在不在 —— 在就是主菜单，不在就是子页。\n候选顺序：Activity（在就点）→ BackArrow（**详情页**走左上箭头）→ Up（子页点右上角面包屑）。\n\n⚠️ 详情页上面包屑是灰的、点不动，必须走左上角箭头。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Stamina_Nav02Activity",
+            "Stamina_Nav02BackArrow",
+            "Stamina_Nav02Up"
+        ],
+        "post_delay": 1000,
+        "max_hit": 12
+    },
+    "Stamina_Nav02Activity": {
+        "doc": "主菜单左侧竖栏的「活动」。命中即点识别框中心（不写死坐标，整栏可能上下平移）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    10,
+                    150,
+                    180,
+                    240
+                ],
+                "expected": [
+                    "活动"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Stamina_Nav03Reset"
+        ],
+        "post_delay": 1500,
+        "timeout": 3000
+    },
+    "Stamina_Nav02BackArrow": {
+        "doc": "**关卡详情页专用**返回：点左上角箭头 (65,148)。判据「选择助战好友」是详情页独有的文案。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    640,
+                    628,
+                    240,
+                    52
+                ],
+                "expected": [
+                    "选择助战好友"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    65,
+                    148
+                ]
+            }
+        },
+        "next": [
+            "Stamina_Nav02Gate",
+            "Stamina_GiveUp"
+        ],
+        "post_delay": 2000
+    },
+    "Stamina_Nav02Up": {
+        "doc": "点右上角蓝色子菜单名按钮退回上一层 (1155,155)。**只对子页有效**。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    1155,
+                    155
+                ]
+            }
+        },
+        "next": [
+            "Stamina_Nav02Gate",
+            "Stamina_GiveUp"
+        ],
+        "post_delay": 2000
+    },
+    "Stamina_Nav03Reset": {
+        "doc": "先无条件滑回右列顶部，再往前扫描。\n\n⚠️ 右列滑动位置是**滞留**的，位置未知，扫描前必须归零。\n步长 160px / duration 300ms —— 都是实机试出来的：步子太大会让卡片整张跳过识别区，\nduration 太长会被当成「按住拖拽」而不是滚动。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Swipe",
+            "param": {
+                "begin": [
+                    1000,
+                    300
+                ],
+                "end": [
+                    1000,
+                    460
+                ],
+                "duration": 300
+            }
+        },
+        "next": [
+            "Stamina_Nav03ResetGate",
+            "Stamina_Nav03Gate"
+        ],
+        "post_delay": 600
+    },
+    "Stamina_Nav03ResetGate": {
+        "doc": "归零循环的汇合点：每滑一次找一次「多元裂缝」。max_hit 3（用户实测调成 3 够用，别改回去）。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Stamina_Nav03Rift",
+            "Stamina_Nav03Reset"
+        ],
+        "post_delay": 600,
+        "max_hit": 3
+    },
+    "Stamina_Nav03Gate": {
+        "doc": "右列往前扫描「多元裂缝」的汇合点。找不到就往下滑一屏。max_hit 10。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Stamina_Nav03Rift",
+            "Stamina_Nav03Scroll",
+            "Stamina_GiveUp"
+        ],
+        "post_delay": 800,
+        "max_hit": 10
+    },
+    "Stamina_Nav03Rift": {
+        "doc": "右列里的「多元裂缝」。⚠️ ROI 罩满整个右列（y 140-660）—— 只开中间一条的话卡片会整张跳过去。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    745,
+                    140,
+                    500,
+                    520
+                ],
+                "expected": [
+                    "多元裂缝"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Stamina_Nav04Youri"
+        ],
+        "post_delay": 1500,
+        "timeout": 3000
+    },
+    "Stamina_Nav03Scroll": {
+        "doc": "右列往下滑一屏。x 取 1000（卡片间的纵向带），避免被当成拖拽卡片。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Swipe",
+            "param": {
+                "begin": [
+                    1000,
+                    460
+                ],
+                "end": [
+                    1000,
+                    300
+                ],
+                "duration": 300
+            }
+        },
+        "next": [
+            "Stamina_Nav03Gate"
+        ],
+        "post_delay": 800
+    },
+    "Stamina_Nav04Youri": {
+        "doc": "多元裂缝页右列的**「曜日挑战」**（第三张卡）。\n\n⚠️ 与「世界那么大」那条链的差异点就在这一级：那边点第一张「虚轴之庭」，\n这里点第三张「曜日挑战」。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    745,
+                    140,
+                    500,
+                    520
+                ],
+                "expected": [
+                    "曜日挑战"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Stamina_PickStage",
+            "Stamina_GiveUp"
+        ],
+        "post_delay": 1500,
+        "timeout": 3000
+    },
+    "Stamina_PickStage": {
+        "doc": "⭐ **关卡选择节点** —— 识别文本和点击位置**都由界面选项覆盖**：\n    recognition.param.expected   要选的关卡名\n    action.param.target          它的卡片坐标\n\n这样「预设关卡」下拉框里加一个选项 = 在 interface.json 里加一条 override；\n以后做「自定义关卡」模式时，用户传的关卡名和坐标也是覆盖这两个字段。\n\n═══ 实测几何（喵王の福利）═══\n    标题「喵王の福利」在 ≈(640,225)\n    卡片本体在     ≈(640,305)\n标题在卡片**上方**，所以识别框和点击点是分开的两个坐标。\n\n⚠️ 标题与卡片不重叠，ROI 只罩标题那一行就够了。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    420,
+                    190,
+                    440,
+                    70
+                ],
+                "expected": [
+                    "喵王の福利"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    640,
+                    305
+                ]
+            }
+        },
+        "next": [
+            "Stamina_Arrived",
+            "Stamina_GiveUp"
+        ],
+        "post_delay": 1500,
+        "timeout": 3000
+    },
+    "Stamina_Arrived": {
+        "doc": "TODO(下一步)：**这里接刷关循环**。\n\n现在停在「喵王の福利」的关卡详情页 —— 本步只做「导航到关卡」这件事。\n下一步要接的是：\n  · 快捷战斗（若可用）刷 N 次，N 由「体力目标」折算\n  · 或者接通用通关脚本 Battle_ClearStage（需先把它从「终止型」改成可返回的子程序）\n\n⚠️ Battle_ClearStage 的终点 Battle_ClearStage_Finish 的 next 是空的 ——\n它被设计成独立任务的入口，**直接当子程序用会终止整条任务**，接之前要先处理。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Stamina_PhaseDone"
+        ]
+    },
+    "Stamina_GiveUp": {
+        "doc": "导航放弃点：退不出子页 / 找不到多元裂缝或曜日挑战 / 关卡卡片点了没反应。\n\n不报错、不终止，平静交给 Stamina_PhaseDone。这一次没刷，下次跑还会再试。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Stamina_PhaseDone"
+        ]
     }
 }
