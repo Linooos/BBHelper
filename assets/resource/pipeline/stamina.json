@@ -19,7 +19,7 @@
         ]
     },
     "Stamina_Plan": {
-        "doc": "读存在感进度 X/300，算出需要刷几次。只写内存状态，不点击任何东西。",
+        "doc": "⭐ **折算刷关次数**：读详情页的「消耗体力 N」，用「体力目标」除它，\n把结果写进 Battle_ClearStage_Count.max_hit。\n\n纯 pipeline 做不到 —— 最后一步是「按计算结果改写另一个节点的参数」，\n写死的 max_hit 没法做除法。所以用 CustomAction plan_stamina_runs\n（见 agent/my_action.py），它内部用 context.override_pipeline 改写。\n\n「体力目标」下拉选项覆盖的就是这里 custom_action_param.target_stamina。\n\n═══ ⚠️ 目前没扣掉今天已消耗的部分 ═══\n直接按 target ÷ 每次消耗 算。今天如果已经消耗过体力，会多刷几次。\n要精确的话得读存在感页的「累计消耗300体力 60/300」，那是下一步的事。\n读不到「消耗体力」时不折算，按原来的 max_hit 跑（保守，不乱刷）。\n\n═══ ⚠️ ROI 必须罩住整行（2026-09-20 踩过）═══\n「消耗体力10」实测框是 [620,529,124,33]。最初 ROI 写成从 x=650 起，\n**把「消」字切掉了** → OCR 读到残缺文本 → expected 匹配不上 → 静默不折算。\n现在用 [600,515,320,60]，左边留足余量。\n\n═══ 喵王の福利每刷一次消耗 10 体力 ═══\n所以体力目标 300 要刷 30 次 —— 这是该关卡的固有代价，不是 bug。\n所以体力目标 300 要刷 30 次 —— run_cap 设成 40 留余量（原来 20 会截短、任务做不完）。\n⚠️ 代价是时间长：按每次约 30 秒算，30 次接近 15 分钟。\n\n═══ ⚠️ ROI 必须罩住整行（2026-09-20 踩过）═══\n「消耗体力10」实测框是 [620,529,124,33]。最初 ROI 写成从 x=650 起，\n**把「消」字切掉了** → OCR 读到残缺文本 → expected 匹配不上 → 静默不折算。\n现在用 [600,515,320,60]，左边留足余量。\n\n═══ 喵王の福利每刷一次消耗 10 体力 ═══\n所以体力目标 300 要刷 30 次 —— 这是这个关卡的固有代价，不是 bug。\n所以体力目标 300 要刷 30 次 —— run_cap 设成 40 留余量（原来 20 会截短、任务做不完）。\n⚠️ 代价是时间长：按每次约 30 秒算，30 次接近 15 分钟。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -29,14 +29,23 @@
             "param": {
                 "custom_action": "plan_stamina_runs",
                 "custom_action_param": {
-                    "progress_node": "Presence_ProgressLeiJingQiuQing",
-                    "stamina_per_run": 30,
                     "target_stamina": 300,
-                    "run_cap": 12
+                    "roi": [
+                        600,
+                        515,
+                        320,
+                        60
+                    ],
+                    "expected": [
+                        "消耗体力"
+                    ],
+                    "run_cap": 40,
+                    "count_node": "Battle_ClearStage_Count"
                 }
             }
         },
         "next": [
+            "[JumpBack]Battle_ClearStage",
             "Stamina_PhaseDone"
         ]
     },
@@ -368,7 +377,7 @@
         "timeout": 3000
     },
     "Stamina_Arrived": {
-        "doc": "关卡已选好，**接通用通关脚本开始刷**。\n\n═══ 为什么是 [JumpBack]（2026-09-20）═══\nBattle_ClearStage_Finish 的 next 是空的 —— 那是「下降终点」，会**终止整条任务**。\n直接当普通 next 接上去，刷完一次战斗后面所有阶段都不会跑了。\n用 [JumpBack] 调用之后，子程序里那个空 next 就变成「返回调用方」。\n\n子程序回来后，本节点重新求值 next：\n  · Battle_ClearStage 已经 max_hit 耗尽 → 失配\n  · 于是落到 Stamina_PhaseDone → 交给共鸣之力\n这就是「刷完就往下走」的机制，不需要额外判断。\n\n═══ 刷几次 ═══\n由「刷关次数」子选项决定 —— 它覆盖 Battle_ClearStage_Count.max_hit。\n（「体力目标」那几个档位暂时没接上：要用它折算次数得先实现\n plan_stamina_runs 这个 CustomAction，留待下一步。）",
+        "doc": "关卡已选好（人停在**关卡详情页**）→ 交给 Stamina_Plan 折算次数。\n\n放在这里是因为：折算要读这一页的「消耗体力 N」，\n而这一步刚好在详情页上。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -378,8 +387,7 @@
             "param": {}
         },
         "next": [
-            "[JumpBack]Battle_ClearStage",
-            "Stamina_PhaseDone"
+            "Stamina_Plan"
         ]
     },
     "Stamina_GiveUp": {
