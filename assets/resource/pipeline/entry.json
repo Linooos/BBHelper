@@ -1,20 +1,118 @@
 {
     "Daily_CleanUp": {
-        "doc": "总入口。阶段顺序：邮件 → 使魔探险 → 使魔的爱 → 世界那么大 → 战力补强 → 体力消耗 → 共鸣之力 → 收尾领奖 → 每周任务 → 终点。\n\n中间的 Daily_* 节点全是**切点**（DirectHit + DoNothing），本身不干活，只做路由：interface.json 里对应的开关把它的 next 改写到「执行」或「跳过」两个方向。pipeline 里的默认值 = 界面的默认值（免费的操作默认跑，消耗性的默认跳）。\n\n⚠️ 存在感的四类任务（使魔的爱 / 世界那么大 / 战力补强 / 共鸣之力）是**顶层平级的步骤**，不嵌在某个「存在感阶段」里。相应地把「回存在感页 → 一键领取」单独拆成收尾的 Daily_ClaimRewards —— 那是最后一步的事，不是存在感任务的入口。这个分工由用户 2026-09-19 明确纠正。\n\n不需要额外的「回大厅」阶段：每个阶段的导航链自己会从任意页面把游戏带回目标页。",
+        "doc": "总入口。第一步**先确保在大厅**（冷启动也能直接跑），然后才进日常阶段。\n\n阶段顺序：启动/回大厅 → 邮件 → 使魔探险 → 使魔的爱 → 世界那么大 → 战力补强 → 体力消耗 → 共鸣之力 → 收尾领奖 → 每周任务 → 终点。\n\n中间的 Daily_* 节点全是**切点**（DirectHit + DoNothing），本身不干活，只做路由：interface.json 里对应的开关把它的 next 改写到「执行」或「跳过」两个方向。pipeline 里的默认值 = 界面的默认值。\n\n⚠️ 存在感的四类任务（使魔的爱 / 世界那么大 / 战力补强 / 共鸣之力）是**顶层平级的步骤**，不嵌在某个「存在感阶段」里。相应地把「回存在感页 → 一键领取」单独拆成收尾的 Daily_ClaimRewards —— 那是最后一步的事。\n\n不需要额外的「回大厅」阶段：每个阶段的导航链自己会从任意页面把游戏带回目标页。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
-        "next": ["Daily_Mail"]
+        "next": ["App_Launch"]
     },
 
     "App_Launch": {
-        "doc": "启动游戏并进入日常流程。",
+        "doc": "启动流程入口。① 先**试活**：已经在大厅就直接往下走（一次模板匹配，几乎零成本）；② 否则拉起游戏并走完启动序列。\n\n═══ 关于「模拟器是否打开」═══\n这条**在 pipeline 里做不到**，也不该在这儿做：模拟器没启动时 ADB 根本连不上，控制器初始化就失败了，任务压根跑不起来。所以这个判定天然由**启动器**（MFAAvalonia 选设备 / adb connect）承担。pipeline 只负责「游戏是否打开」和「在不在大厅」。\n\n═══ 实机观察到的启动序列（2026-09-19，强停后冷启动）═══\n    1. 标题画面     「…屏幕继续」→ 需要点一下\n    2. 「网络连接中…」  自消散的 loading，不用管\n    3. 大厅         左侧栏第一个图标出现\n分账号/分时段可能还有签到、公告等弹窗，由 App_CleanPopups 兜。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "App_CheckLobby",
+            "App_Boot"
+        ]
+    },
+
+    "App_Boot": {
+        "doc": "拉起游戏。StartApp 等价于 am start：游戏没运行就冷启动，已在后台就切到前台。\n\n⚠️ 本机实测过 force-stop 之后回到的是 Android 桌面（app.lawnchair），桌面上的游戏图标在 (963,175)。StartApp 走的是包名启动，不依赖图标位置；万一将来要兜底点图标，坐标记在这里。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {
             "type": "StartApp",
             "param": {"package": "com.miHoYo.HSoDv2Original"}
         },
-        "next": ["Daily_Mail"],
+        "next": ["App_BootCycle"],
         "post_delay": 3000
+    },
+
+    "App_BootCycle": {
+        "doc": "启动等待循环的**汇合点**。\n\n⚠️ 它必须是独立的一层、不能把 max_hit 挂在循环体自己身上：按 dev_loop §5.9①，计数循环要靠「每轮回到一个汇合点」让计数器重新求值（App_BootCount 才是计数器）。\n\nnext 的兜底 App_BootFail 保证它永不空手而归，所以恒命中在这里是安全的。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "App_BootCount",
+            "App_BootFail"
+        ]
+    },
+
+    "App_BootCount": {
+        "doc": "计数器 + 节流：`max_hit: 30` × `post_delay: 2000` ≈ 最长等 60 秒。\n\n每轮顺序：先看是不是已经到大厅（是就直接往下走），不是才去点标题、然后回到汇合点等下一轮。\n\n⚠️ App_CheckLobby 必须排第一：如果让恒命中的节点挡在前面，检测要等计数耗尽才会被求值。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "App_CheckLobby",
+            "App_TapTitle",
+            "App_BootCycle"
+        ],
+        "post_delay": 2000,
+        "max_hit": 30
+    },
+
+    "App_TapTitle": {
+        "doc": "标题画面的「…屏幕继续」。\n\nexpected 只写「屏幕继续」四个字，不写全 —— 前半截（抚摸/触摸）在低置信度下容易被 OCR 读错，取尾部稳定子串更保险。\n\n点击点是写死的 (640,400)：**刻意避开右上角的「账号切换」**(≈1085,40) —— 点错了会切账号，主号上后果很严重。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    480,
+                    645,
+                    320,
+                    50
+                ],
+                "expected": [
+                    "屏幕继续"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {"target": [
+                    640,
+                    400
+                ]}
+        },
+        "next": ["App_BootCycle"],
+        "post_delay": 1500,
+        "timeout": 2000
+    },
+
+    "App_CheckLobby": {
+        "doc": "大厅判据：左侧栏第一个图标（任务中心）。\n\n为什么用它：这个图标**只在首页存在**。点进去之后左栏会整个换成「任务 / 存在感 / 每周任务 / 使魔探险」的文字按钮；切到战斗、装备、商店等页同样会换掉。所以它是「在大厅」的可靠特征。\n\n顶部那排 首页/战斗/装备/商店/社交/其他 不能用 —— 它们在**每个页面**都在，判不出当前位置。",
+        "recognition": {
+            "type": "TemplateMatch",
+            "param": {
+                "roi": [
+                    0,
+                    130,
+                    120,
+                    100
+                ],
+                "template": "Lobby/TaskCenterIcon.png",
+                "threshold": 0.7
+            }
+        },
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["App_CleanPopups"],
+        "timeout": 2000
+    },
+
+    "App_CleanPopups": {
+        "doc": "进大厅后清一遍残留弹窗（签到 / 公告 / 活动 …）。交给统一门控，以后加新弹窗处理器不用改这里。\n\n⚠️ 目前门控只认三个已知弹窗（获得奖励 / 已领取以下奖励 / 确定）。**冷启动后可能出现签到、公告之类的新弹窗，实测当天因为签到已完成没有复现** —— 等复现时往 Common_PopupGate 的处理器列表里加。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "[JumpBack]Common_PopupGate",
+            "Daily_Mail"
+        ]
+    },
+
+    "App_BootFail": {
+        "doc": "等不到大厅（游戏起不来 / 卡在更新 / 网络连不上）。\n\n**仍然往下走**，让后面的阶段自己失败 —— 比整条任务在这里报错更好定位：日志里能看到到底是启动卡住了，还是后续某个识别出了问题。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Daily_Mail"]
     },
 
     "Daily_Mail": {

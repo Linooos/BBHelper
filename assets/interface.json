@@ -102,10 +102,6 @@
             "entry": "Summon_Entry"
         },
         {
-            "name": "启动游戏并回大厅",
-            "entry": "App_Launch"
-        },
-        {
             "name": "通用通关（需先停在关卡详情页）",
             "entry": "Battle_ClearStage",
             "option": [
