@@ -607,18 +607,283 @@
         ]
     },
     "Presence_ZhanLiBuQiang_Task": {
-        "doc": "TODO(待实现)：战力补强。购买逻辑**需要用户现场引导**（商品位置 / 价格 / 最便宜的那件），不预先猜测。\n\n⚠️ 实现时注意：中央「确定」(640,483) 既可能是普通提示、也可能是消耗确认框。购买流程必须先把通用 Common_NoticeConfirm 从 next 里摘掉，改用带文案校验的专属确认节点，否则可能把「确认购买」当成普通提示点掉。Common_DenyList 是最后一道闸。目前是空壳。",
+        "doc": "战力补强（每日任务：购买一件「礼包商店」中的商品）。\n\n路径（2026-09-19 实机走通）：首页 → 顶部「商店」→「礼包商店」卡片 → 左侧栏「吼美礼包」→ 下滑 → 「零时馈礼」→ 购买 → 弹窗「购买」→「提示 / 购买成功」→ 确定。\n\n═══ ⭐ 买的为什么是「零时馈礼」═══\n它标价 **×0，是免费的** —— 所以这个每日任务是**零成本**完成的。\n同一页的「月卡礼包」是 **¥30 真实货币**，绝不能碰；「日常补给包」要 ×6。\n这是本条链唯一的商品目标，**换商品前务必先看清标价**。\n\n═══ 「今天已完成」的判据 ═══\n买完之后「零时馈礼」整张卡**从列表里消失**（每日限购 1/1）。\n所以扫描时找不到它 = 今天已经买过 → 直接跳过，不会重复操作。\n\n═══ 从首页开始，不依赖前序状态 ═══\n用户明确要求：每个任务都要能从首页独立跑起来。本链第一步就是点「首页」，\n后面每一跳也都有明确判据，不假设上一步留下了什么。\n\n═══ ⚠️ 刻意不接通用弹窗节点 ═══\n「是否购买零时馈礼」那个弹窗里，购买 (527,458) 与取消 (757,458) 并列，\n都贴着 Common_NoticeConfirm 的 ROI [540,430,200,70] 边界 —— 通用节点点哪个看运气。\n用带文案校验的专属确认节点（同共鸣之力 / 使魔的爱）。\n\n本篇是**消耗性**操作，界面上默认关闭。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "phase_begin",
+                "custom_action_param": {"phase": "战力补强"}
+            }
+        },
+        "next": [
+            "Presence_ZhanLiBuQiang_Scan",
+            "Presence_ZhanLiBuQiang_Nav"
+        ]
+    },
+    "Presence_ZhanLiBuQiang_Scan": {
+        "doc": "试活：已经在「吼美礼包」页且「零时馈礼」还在列表里 → 直接买。\n\n识别的是**卡片标题**，点击点在它下方约 296px 的「购买」按钮上 ——\n不需要写死购买按钮的绝对坐标，因为卡片会随着其它商品被买走而**重新排列**，\n位置不固定。用 target_offset 跟着标题走才稳。",
         "recognition": {
-            "type": "DirectHit",
-            "param": {}
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    150,
+                    160,
+                    1120,
+                    540
+                ],
+                "expected": [
+                    "零时馈礼"
+                ]
+            }
         },
         "action": {
-            "type": "DoNothing",
-            "param": {}
+            "type": "Click",
+            "param": {"target_offset": [
+                    0,
+                    296,
+                    0,
+                    0
+                ]}
+        },
+        "next": [
+            "Presence_ZhanLiBuQiang_Confirm",
+            "Presence_ZhanLiBuQiang_Cancel",
+            "Presence_ZhanLiBuQiang_GiveUp"
+        ],
+        "post_delay": 1200,
+        "timeout": 3000
+    },
+    "Presence_ZhanLiBuQiang_Confirm": {
+        "doc": "⭐ 专属确认：**弹窗正文必须是「是否购买」才点「购买」**（(527,458)，写死）。\n\n识别 ROI 罩的是正文那一行，不是下面两个按钮。\n点「购买」而不是「取消」是因为走到这里就说明我们已经确认过要买了；\n真正防的是「误把别的弹窗当成本弹窗」——所以必须有文案校验。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    500,
+                    385,
+                    280,
+                    45
+                ],
+                "expected": [
+                    "是否购买"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {"target": [
+                    527,
+                    458
+                ]}
+        },
+        "next": [
+            "Presence_ZhanLiBuQiang_Success"
+        ],
+        "post_delay": 1500,
+        "timeout": 4000
+    },
+    "Presence_ZhanLiBuQiang_Success": {
+        "doc": "购买成功的提示框：「提示 / 购买成功」。点确定 (640,445) 关掉。\n\n这个确定**确实**落在 Common_NoticeConfirm 的 ROI 里，但这里仍然自己点 ——\n购买流程整条都不接通用弹窗节点，保持一致性比省一个节点重要。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    400,
+                    360,
+                    480,
+                    60
+                ],
+                "expected": [
+                    "购买成功"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {"target": [
+                    640,
+                    445
+                ]}
+        },
+        "next": [
+            "Presence_ZhanLiBuQiang_PhaseDone"
+        ],
+        "post_delay": 1200,
+        "timeout": 4000
+    },
+    "Presence_ZhanLiBuQiang_Cancel": {
+        "doc": "兜底：弹窗在，但正文不是「是否购买」（界面改版 / 弹了别的东西）。\n**一律点「取消」退出**，绝不点购买。这是本任务最后的防线。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    710,
+                    435,
+                    120,
+                    45
+                ],
+                "expected": [
+                    "取消"
+                ]
+            }
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": [
+            "Presence_ZhanLiBuQiang_PhaseDone"
+        ],
+        "post_delay": 1000,
+        "timeout": 3000
+    },
+    "Presence_ZhanLiBuQiang_GiveUp": {
+        "doc": "放弃点：导航没走通 / 找不到「零时馈礼」之后的落点。\n\n⚠️ 注意「找不到零时馈礼」**多半不是失败**，而是今天已经买过了（卡片会消失）。\n所以这里不报错、不终止，平静地交给下一个阶段。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "Presence_ZhanLiBuQiang_PhaseDone"
+        ]
+    },
+    "Presence_ZhanLiBuQiang_PhaseDone": {
+        "doc": "战力补强收尾：写完成状态，交给体力消耗。所有出口都汇到这里。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "phase_end",
+                "custom_action_param": {"phase": "战力补强"}
+            }
         },
         "next": [
             "Daily_Stamina"
         ]
+    },
+
+    "Presence_ZhanLiBuQiang_Nav": {
+        "doc": "导航到「吼美礼包」页。**从首页起步**（用户要求：每个任务独立可跑，不依赖前序状态）。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "Presence_ZhanLiBuQiang_Nav01Lobby"
+        ]
+    },
+    "Presence_ZhanLiBuQiang_Nav01Lobby": {
+        "doc": "导航第 1 步：点顶部「首页」。\n\n⚠️ 这一步是「从首页开始」这条约定的落点。顶部导航每个页面都在，所以从哪都能回去。\nROI 右边界止于 720：右邻「战斗」的文字框从 745 起。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    600,
+                    40,
+                    120,
+                    80
+                ],
+                "expected": [
+                    "首页"
+                ]
+            }
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": [
+            "Presence_ZhanLiBuQiang_Nav02Shop"
+        ],
+        "post_delay": 1500,
+        "timeout": 4000
+    },
+    "Presence_ZhanLiBuQiang_Nav02Shop": {
+        "doc": "导航第 2 步：点顶部「商店」（从右往左第三个）。\n\n⚠️ ROI 右边界止于 1075：右邻「社交」的文字框从 1080 起。\n这条 ROI 与「共鸣之力」用的是同一个约束，别改宽。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    935,
+                    20,
+                    140,
+                    110
+                ],
+                "expected": [
+                    "商店"
+                ]
+            }
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": [
+            "Presence_ZhanLiBuQiang_Nav03Gift"
+        ],
+        "post_delay": 1500,
+        "timeout": 4000
+    },
+    "Presence_ZhanLiBuQiang_Nav03Gift": {
+        "doc": "导航第 3 步：点店铺网格里的「礼包商店」卡片（第一行第二张）。\n\n⚠️ 卡片标题与进店后左侧栏的标签可能同名，所以 ROI 锁在**网格里那张卡**的位置\n（第一行 y 265-315），别让它匹配到侧栏。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    410,
+                    265,
+                    195,
+                    50
+                ],
+                "expected": [
+                    "礼包商店"
+                ]
+            }
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": [
+            "Presence_ZhanLiBuQiang_Nav04Houmei"
+        ],
+        "post_delay": 1500,
+        "timeout": 4000
+    },
+    "Presence_ZhanLiBuQiang_Nav04Houmei": {
+        "doc": "导航第 4 步：点左侧栏的「吼美礼包」。\n\n左侧栏是 月卡礼包 / 吼美礼包 / 心意商店 / 常驻礼包 四项。\n⚠️ 千万别点成「月卡礼包」—— 那个是 ¥30 真钱。所以这里**必须**靠文字识别定位，\n不能图省事写死第一项的坐标。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    10,
+                    265,
+                    135,
+                    50
+                ],
+                "expected": [
+                    "吼美礼包"
+                ]
+            }
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": [
+            "Presence_ZhanLiBuQiang_Scan",
+            "Presence_ZhanLiBuQiang_Nav05Scroll",
+            "Presence_ZhanLiBuQiang_GiveUp"
+        ],
+        "post_delay": 1500,
+        "timeout": 4000
+    },
+    "Presence_ZhanLiBuQiang_Nav05Scroll": {
+        "doc": "商品列表向下滑一屏，再找一次「零时馈礼」。\n\n整张列表只有两行卡片，滑 2-3 次一定到底；到底之后继续滑是无效动作，天然安全。\n步长 160px（沿用「使魔的爱」那条链踩出来的经验：步子太大会让卡片整张跳过识别区）。\n\n注意 x 取 640 —— 那是四列卡片之间的**空隙**，避免把滑动当成拖拽商品卡片。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {
+            "type": "Swipe",
+            "param": {
+                "begin": [
+                    640,
+                    560
+                ],
+                "end": [
+                    640,
+                    400
+                ],
+                "duration": 300
+            }
+        },
+        "next": [
+            "Presence_ZhanLiBuQiang_Scan",
+            "Presence_ZhanLiBuQiang_Nav05Scroll",
+            "Presence_ZhanLiBuQiang_GiveUp"
+        ],
+        "post_delay": 800,
+        "max_hit": 4
     },
     "Presence_Resonance_Gate": {
         "doc": "切点：每日任务「共鸣之力」——刷新一次「共鸣屋」中的商品。⚡ 剩余次数归零后会消耗零时之种。\n\n默认是**跳过**，理由同战力补强。打开后改写为 Presence_Resonance_Task。\n子选项「使用代币刷新」控制次数归零后要不要继续刷（默认不刷）。\n\n排在体力消耗**之后**：刷完体力顺手刷新共鸣屋，任务清单顺序与界面上选项顺序一致。",
