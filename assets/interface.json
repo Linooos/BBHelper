@@ -79,9 +79,9 @@
                 "使魔的爱",
                 "世界那么大",
                 "战力补强",
-                "共鸣之力",
                 "体力消耗",
                 "体力目标",
+                "共鸣之力",
                 "领取以上任务奖励",
                 "每周任务"
             ]
@@ -196,7 +196,7 @@
                     "pipeline_override": {
                         "Daily_Summon": {
                             "next": [
-                                "Presence_Entry"
+                                "Presence_SummonLove_Gate"
                             ]
                         }
                     }
@@ -279,7 +279,7 @@
                     "pipeline_override": {
                         "Presence_ZhanLiBuQiang_Gate": {
                             "next": [
-                                "Presence_Resonance_Gate"
+                                "Daily_Stamina"
                             ]
                         }
                     }
@@ -306,7 +306,7 @@
                     "pipeline_override": {
                         "Presence_Resonance_Gate": {
                             "next": [
-                                "Presence_Evaluate"
+                                "Daily_ClaimRewards"
                             ]
                         }
                     }
@@ -334,7 +334,7 @@
                     "pipeline_override": {
                         "Daily_Stamina": {
                             "next": [
-                                "Daily_ClaimRewards"
+                                "Presence_Resonance_Gate"
                             ]
                         }
                     }
@@ -393,7 +393,7 @@
         // ────────────── 收尾 ──────────────
         "领取以上任务奖励": {
             "type": "switch",
-            "description": "跑完上面所有任务后回存在感页收尾，把这一轮新解锁的奖励领掉（里程碑星星 20/40/60/80/100/150 的「一键领取」）。\n\n排在体力消耗**之后**，这样体力消耗产生的存在感也一起收进来。\n⬜ 尚未实现：当前是空壳。",
+            "description": "跑完上面所有任务后回存在感页收尾，把这一轮新解锁的奖励领掉（里程碑星星 20/40/60/80/100/150 的「一键领取」）。\n\n排在体力消耗**之后**，这样体力消耗产生的存在感也一起收进来。\n\n✅ 已接上真实节点（导航 + 一键领取 + 关弹窗），节点本身此前实机验证过。⚠️ 但它从「存在感阶段入口」挪到「收尾链」之后的新位置**尚未实机验证**。",
             "default_case": "Yes",
             "cases": [
                 {

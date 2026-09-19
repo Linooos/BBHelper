@@ -1,21 +1,6 @@
 {
-    "Presence_Entry": {
-        "doc": "存在感阶段入口。结构与 Summon_Entry 相同：先试活，不中再走线性导航链。入口：大厅左侧任务中心图标 → 左侧「存在感」标签。每日 8 条任务，满分 150。任务列表顺序可能每日变化，「前往」按钮的 y 随行变，需动态定位（CustomRecognition presence_find_task_row）。当前只实现了顶部里程碑的「一键领取」，逐条任务的执行见各 *_Gate 分支（阶段 4/6 实现）。",
-        "recognition": {
-            "type": "DirectHit",
-            "param": {}
-        },
-        "action": {
-            "type": "DoNothing",
-            "param": {}
-        },
-        "next": [
-            "Presence_ClaimMilestone",
-            "Presence_Nav"
-        ]
-    },
     "Presence_Nav": {
-        "doc": "线性导航链起点，理由同 Summon_Nav。",
+        "doc": "「回存在感页」的线性导航链起点。顶部标签在任何页面都可见，所以「点首页」从哪儿都能回大厅；回到大厅后任务中心图标必然可匹配。因此不需要降级分支，一条直线即可。\n\n⚠️ 这条链**只负责导航**，不做任何领取动作；终点是 Presence_ClaimMilestone。将来「使魔的爱」等任务也要用这条链时，需要把终点改成由调用方决定（大概率用 [JumpBack] 让导航跑完回到调用方），不要在这里再挂业务。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -80,7 +65,7 @@
         "timeout": 4000
     },
     "Presence_Nav03Tab": {
-        "doc": "导航第 3 步：切到「存在感」标签，进入循环体。",
+        "doc": "导航第 3 步：切到「存在感」标签，到达后交给一键领取。",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -100,32 +85,14 @@
             "param": {}
         },
         "next": [
-            "Presence_Loop"
+            "Presence_ClaimMilestone"
         ],
         "post_delay": 1200,
         "timeout": 4000
     },
-    "Presence_Loop": {
-        "doc": "循环体：先清弹窗，再尝试领里程碑。里程碑领完后「一键领取」按钮可能仍在（置灰），OCR 依然读得到文字，靠 Presence_ClaimMilestone 的 max_hit 收敛。",
-        "recognition": {
-            "type": "DirectHit",
-            "param": {}
-        },
-        "action": {
-            "type": "DoNothing",
-            "param": {}
-        },
-        "next": [
-            "[JumpBack]Common_TapToDismiss",
-            "[JumpBack]Common_DenyList",
-            "[JumpBack]Common_NoticeConfirm",
-            "Presence_ClaimMilestone",
-            "Presence_SummonLove_Gate"
-        ],
-        "max_hit": 12
-    },
+
     "Presence_ClaimMilestone": {
-        "doc": "领取顶部里程碑奖励（20/40/60/80/100/150 六个星星的「一键领取」）。按钮在页头右侧，x 区间与邮件页的「一键领取」无关。领完会弹「已领取以下奖励」（点空白处关闭）。",
+        "doc": "领取顶部里程碑奖励（20/40/60/80/100/150 六个星星的「一键领取」）。按钮在页头右侧，x 区间与邮件页的「一键领取」无关。领完会弹「已领取以下奖励」（点空白处关闭）。\n\n`max_hit: 2` 是因为领完后按钮可能仍以置灰形态在，OCR 照样读得到文字；限次收敛，避免死循环。\n\n⚠️ 本节点**只属于收尾领奖链**（ClaimRewards_Entry）。用户 2026-09-19 明确了分工：领取存在感奖励是最后一步的事，不属于存在感各类任务的阶段。所以 next 落点是 ClaimRewards_PhaseDone，**绝不能再挂 Presence_SummonLove_Gate 那一串** —— 那会把存在感任务 + 体力消耗整条链再跑一遍，直接成环。",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -148,20 +115,50 @@
             "[JumpBack]Common_TapToDismiss",
             "[JumpBack]Common_DenyList",
             "[JumpBack]Common_NoticeConfirm",
-            "Presence_SummonLove_Gate"
+            "ClaimRewards_PhaseDone"
         ],
         "post_delay": 800,
         "timeout": 3000,
         "max_hit": 2
     },
+    "ClaimRewards_Entry": {
+        "doc": "收尾领奖：跑完邮件 / 使魔探险 / 四类存在感任务 / 体力消耗之后，回存在感页把这一轮新解锁的奖励收掉。结构与 Mail_Entry 相同 —— **先试活、不中再导航**：已经在存在感页就直接领，否则走 Presence_Nav 导航过去。\n\n排在体力消耗**之后**是有意的：体力刷出来的存在感也在这一轮解锁，早领会漏。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Presence_ClaimMilestone",
+            "Presence_Nav"
+        ]
+    },
+    "ClaimRewards_PhaseDone": {
+        "doc": "收尾领奖阶段结束，交给每周任务阶段。也是 Presence_ClaimMilestone 没能命中时的落点（没有可领的东西时不应卡住）。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Daily_Weekly"
+        ]
+    },
+
     "Presence_SummonLove_Gate": {
-        "doc": "切点：每日任务「火线救援」——通关一次多元裂缝关卡「使魔的爱」。⭐ 消耗体力 30。\n\n默认是**执行**（next 指向 _Task）；interface.json 关掉「使魔的爱」时改写为 Presence_WorldSoBig_Gate。\n\n⚠️ 这是**扁平切点链**，不是嵌套分支：每个 Gate 都直接给出「执行」和「跳过」两个目标，跳过 = 指向下一个切点。项目早期用 Gate 节点做条件分支，结果是「next 全不中 → 整条任务报错」，改成这种扁平写法后就没有那个问题了（见 dev_loop.md）。",
+        "doc": "切点：每日任务「火线救援」——通关一次多元裂缝关卡「使魔的爱」。⭐ 消耗体力 30。\n\n默认是**执行**（next 指向 _Task）；interface.json 关掉「使魔的爱」时改写为 Presence_WorldSoBig_Gate。\n\n⚠️ 这是**扁平切点链**，不是嵌套分支：每个 Gate 都直接给出「执行」和「跳过」两个目标，跳过 = 指向下一个切点。项目早期用 Gate 节点做条件分支，结果是「next 全不中 → 整条任务报错」，改成这种扁平写法后就没有那个问题了（见 dev_loop.md）。\n\n⚠️ 各 Gate 的「下一个切点」必须与对应 _Task 的 next 落点一致，否则开关拨动前后的路径会分叉。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
         "next": ["Presence_SummonLove_Task"]
     },
     "Presence_SummonLove_Task": {
-        "doc": "TODO(待实现)：使魔的爱。\n\n预期路线：存在感页找到「火线救援」那一行的「前往」按钮（CustomRecognition presence_find_task_row 就是为这个写的，已验证能返回同行按钮的 box）→ 点进关卡详情页 →「快捷战斗」秒过结算 → 返回存在感页。\n\n目前是**空壳**：DirectHit + DoNothing，只把路由打通，不做任何点击。等引导确认关卡入口与「今日剩余次数 1/1」的性质后再填。",
+        "doc": "TODO(待实现)：使魔的爱。\n\n预期路线：存在感页找到「火线救援」那一行的「前往」按钮（CustomRecognition presence_find_task_row 就是为这个写的，已验证能返回同行按钮的 box）→ 点进关卡详情页 →「快捷战斗」秒过结算 → 返回存在感页。\n\n⚠️ 本任务需要**自己**把游戏导航到存在感页（用 Presence_Nav），不要假设前一步留下了什么状态。\n\n目前是**空壳**：DirectHit + DoNothing，只把路由打通，不做任何点击。等引导确认关卡入口与「今日剩余次数 1/1」的性质后再填。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
         "next": ["Presence_WorldSoBig_Gate"]
@@ -179,77 +176,27 @@
         "next": ["Presence_ZhanLiBuQiang_Gate"]
     },
     "Presence_ZhanLiBuQiang_Gate": {
-        "doc": "切点：每日任务「战力补强」——购买一件「礼包商店」中的商品。⚡ **真实消费**。\n\n默认是**跳过**（next 直指下一个切点），与界面默认值一致：这是**主号**，消耗性操作必须在界面上显式打开。打开后改写为 Presence_ZhanLiBuQiang_Task。",
+        "doc": "切点：每日任务「战力补强」——购买一件「礼包商店」中的商品。⚡ **真实消费**。\n\n默认是**跳过**（next 直指体力消耗切点），与界面默认值一致：这是**主号**，消耗性操作必须在界面上显式打开。打开后改写为 Presence_ZhanLiBuQiang_Task。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
-        "next": ["Presence_Resonance_Gate"]
+        "next": ["Daily_Stamina"]
     },
     "Presence_ZhanLiBuQiang_Task": {
         "doc": "TODO(待实现)：战力补强。购买逻辑**需要用户现场引导**（商品位置 / 价格 / 最便宜的那件），不预先猜测。\n\n⚠️ 实现时注意：中央「确定」(640,483) 既可能是普通提示、也可能是消耗确认框。购买流程必须先把通用 Common_NoticeConfirm 从 next 里摘掉，改用带文案校验的专属确认节点，否则可能把「确认购买」当成普通提示点掉。Common_DenyList 是最后一道闸。目前是空壳。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
-        "next": ["Presence_Resonance_Gate"]
+        "next": ["Daily_Stamina"]
     },
     "Presence_Resonance_Gate": {
-        "doc": "切点：每日任务「共鸣之力」——刷新一次「共鸣屋」中的商品。⚡ 可能消耗水晶。\n\n默认是**跳过**，理由同战力补强。打开后改写为 Presence_Resonance_Task。",
+        "doc": "切点：每日任务「共鸣之力」——刷新一次「共鸣屋」中的商品。⚡ 可能消耗水晶。\n\n默认是**跳过**，理由同战力补强。打开后改写为 Presence_Resonance_Task。\n\n排在体力消耗**之后**：刷完体力顺手刷新共鸣屋，任务清单顺序与界面上选项顺序一致。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
-        "next": ["Presence_Evaluate"]
+        "next": ["Daily_ClaimRewards"]
     },
     "Presence_Resonance_Task": {
         "doc": "TODO(待实现)：共鸣之力。高消耗风险（刷新可能花水晶），实现时必须走专属确认节点 + Common_DenyList，不能复用通用弹窗节点。目前是空壳。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
-        "next": ["Presence_Evaluate"]
-    },
-    "Presence_Evaluate": {
-        "doc": "汇总点：所有分类任务执行完后的汇合处。",
-        "recognition": {
-            "type": "DirectHit",
-            "param": {}
-        },
-        "action": {
-            "type": "DoNothing",
-            "param": {}
-        },
-        "next": [
-            "Presence_PhaseDone"
-        ]
-    },
-    "Presence_PhaseDone": {
-        "doc": "存在感阶段结束，交给体力消耗阶段。",
-        "recognition": {
-            "type": "DirectHit",
-            "param": {}
-        },
-        "action": {
-            "type": "DoNothing",
-            "param": {}
-        },
-        "next": [
-            "Daily_Stamina"
-        ]
-    },
-    "ClaimRewards_Entry": {
-        "doc": "TODO(待实现)：收尾领奖。跑完邮件 / 使魔探险 / 存在感四类任务 / 体力消耗之后，回存在感页把这一轮新解锁的奖励收掉（里程碑星星 20/40/60/80/100/150 的「一键领取」，以及任何变成「可领取」的任务行）。\n\n⚠️ 实现时**不要**直接复用 Presence_ClaimMilestone：那个节点的 next 会落进 Presence_SummonLove_Gate → … → Presence_PhaseDone → Daily_Stamina，等于把整个存在感+体力阶段又跑一遍，直接成环。这条收尾链要独立，领完直达 ClaimRewards_PhaseDone。\n\n目前是**空壳**：DirectHit + DoNothing，只把路由打通。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
-        "next": [
-            "ClaimRewards_PhaseDone"
-        ]
-    },
-    "ClaimRewards_PhaseDone": {
-        "doc": "收尾领奖阶段结束，交给每周任务阶段。",
-        "recognition": {
-            "type": "DirectHit",
-            "param": {}
-        },
-        "action": {
-            "type": "DoNothing",
-            "param": {}
-        },
-        "next": [
-            "Daily_Weekly"
-        ]
+        "next": ["Daily_ClaimRewards"]
     }
 }

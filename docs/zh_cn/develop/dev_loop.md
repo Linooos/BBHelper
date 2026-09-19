@@ -305,12 +305,26 @@ src.crop((x0, y0, x1, y1)).save(r"D:\...\debug\tpl\name.png")
 改完之后整个日常流程的命中轨迹变成**每个节点恰好一次、零空转**：
 
 ```text
-Daily_CleanUp → Mail_Entry → Mail_Loop → Mail_PhaseDone
-→ Summon_Entry → Summon_Nav(+3步) → Summon_Loop → Summon_Settle → Summon_PhaseDone
-→ Presence_Entry → Presence_Nav(+3步) → Presence_Loop → Presence_ClaimMilestone
-→ …三个 Gate… → Presence_PhaseDone
-→ Daily_Stamina → … → Daily_Finish
+Daily_CleanUp → Daily_Mail → Mail_Entry → Mail_Loop → Mail_PhaseDone
+→ Daily_Summon → Summon_Entry → Summon_Nav(+3步) → Summon_Loop → Summon_Settle
+  → Summon_PhaseDone
+→ Presence_SummonLove_Gate → …Task → Presence_WorldSoBig_Gate → …Task
+  → Presence_ZhanLiBuQiang_Gate → Daily_Stamina → …→ Stamina_PhaseDone
+  → Presence_Resonance_Gate → Daily_ClaimRewards → ClaimRewards_Entry
+  → Presence_Nav(+3步) → Presence_ClaimMilestone → ClaimRewards_PhaseDone
+→ Daily_Weekly → Weekly_Entry → Weekly_PhaseDone → Daily_Finish
 ```
+
+⚠️ **存在感的设计要点**（2026-09-19 用户纠正后定稿）：
+
+- 存在感的四类任务（使魔的爱 / 世界那么大 / 战力补强 / 共鸣之力）是**顶层平级的步骤**，
+  各自带自己的 Gate，**不嵌在某个「存在感阶段」里面**。
+- 「回存在感页 → 一键领取」是**收尾的独立一步**（`Daily_ClaimRewards`），
+  排在体力消耗之后（体力刷出来的存在感也在这一轮解锁，早领会漏），
+  **不是**存在感任务的入口。
+
+一开始把这两件事揉进同一个 `Presence_Entry`（进去先领奖、再跑各类任务），
+结果使魔探险跑完会莫名其妙去点一次「一键领取」。分开之后就没有这个动作了。
 
 ---
 

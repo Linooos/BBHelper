@@ -260,7 +260,7 @@
         ]
     },
     "Summon_PhaseDone": {
-        "doc": "使魔探险阶段结束，交给存在感阶段。",
+        "doc": "使魔探险阶段结束，直接接存在感的第一类任务「使魔的爱」。\n\n⚠️ 不经过任何「存在感页领取」动作 —— 领取属于收尾的 ClaimRewards 链，不在这里做。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -270,7 +270,7 @@
             "param": {}
         },
         "next": [
-            "Presence_Entry"
+            "Presence_SummonLove_Gate"
         ]
     }
 }
