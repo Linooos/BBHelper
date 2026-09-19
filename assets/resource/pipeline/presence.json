@@ -162,10 +162,301 @@
         "next": ["Presence_SummonLove_Task"]
     },
     "Presence_SummonLove_Task": {
-        "doc": "TODO(待实现)：使魔的爱。\n\n预期路线：存在感页找到「火线救援」那一行的「前往」按钮（CustomRecognition presence_find_task_row 就是为这个写的，已验证能返回同行按钮的 box）→ 点进关卡详情页 →「快捷战斗」秒过结算 → 返回存在感页。\n\n⚠️ 本任务需要**自己**把游戏导航到存在感页（用 Presence_Nav），不要假设前一步留下了什么状态。\n\n目前是**空壳**：DirectHit + DoNothing，只把路由打通，不做任何点击。等引导确认关卡入口与「今日剩余次数 1/1」的性质后再填。",
+        "doc": "使魔的爱（每日任务「火线救援」）。⭐ 消耗体力 30。\n\n路径（2026-09-19 实机走通）：首页 → 顶部「战斗」→ 左侧竖栏「活动」→ 右侧列「多元裂缝」→ 「使魔的爱」卡片 → 关卡详情页「快捷战斗」→ 确认框「确定」→ 结算页「确定」。\n实测：体力 999→969（扣 30），返回详情页后「今日剩余次数」1/1 → 0/1，**「快捷战斗」按钮消失**。\n\n═══ 「今天已完成」的天然判据 ═══\n打完一次后「快捷战斗」按钮就没有了。所以下面 Nav 之后落到的 Quick 节点\n本身就是「还没打完」的判定 —— 打完了它不命中，也不会误点。\n\n═══ 页面滞留（用户提醒，已实测确认）═══\n「战斗」和它下面的子菜单都会**记住上次停留的页**。所以进「战斗」不一定在主菜单，\n可能直接在某个子页里。回到上一层靠**点右上角的子菜单名按钮** (1155,155)，\n它在每个子页都有，点一次上一层。Nav02Gate 那个循环就是干这个的。\n\n═══ ⚠️ 本链**刻意不接** Common_PopupGate / Common_NoticeConfirm ═══\n快捷战斗的确认框（标题「快捷战斗」，确定 (557,470) / 取消 (720,470)）\n**两个按钮都落在 Common_NoticeConfirm 的 ROI [540,430,200,70] 里** ——\n通用节点会点错。和「共鸣之力」一样，用带文案校验的专属确认节点。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "phase_begin",
+                "custom_action_param": {"phase": "使魔的爱"}
+            }
+        },
+        "next": [
+            "Presence_SummonLove_Quick",
+            "Presence_SummonLove_Nav"
+        ]
+    },
+    "Presence_SummonLove_Quick": {
+        "doc": "关卡详情页的「快捷战斗」。命中就意味着「今天还没打过」—— 打完这个按钮会消失。\n\n点在识别框中心即可（按钮很长，中心就是按钮中间）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    900,
+                    628,
+                    240,
+                    52
+                ],
+                "expected": [
+                    "快捷战斗"
+                ]
+            }
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": [
+            "Presence_SummonLove_Confirm",
+            "Presence_SummonLove_GiveUp"
+        ],
+        "post_delay": 1200,
+        "timeout": 3000
+    },
+    "Presence_SummonLove_Confirm": {
+        "doc": "⭐ 专属确认：**弹窗标题必须是「快捷战斗」才点「确定」**（(557,470)，写死）。\n\n识别 ROI 罩的是弹窗**标题**（y≈262-292），不是底部那两个按钮 ——\n关卡详情页上的「快捷战斗」按钮在 y≈653，两者不重叠，不会互相误认。\n\n⚠️ 为什么不能用 Common_NoticeConfirm：它那个 ROI 同时罩住了本弹窗的\n「确定」(557) 和「取消」(720)，点哪个全看 OCR 分数 —— 那是掷骰子。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    570,
+                    255,
+                    160,
+                    45
+                ],
+                "expected": [
+                    "快捷战斗"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {"target": [
+                    557,
+                    470
+                ]}
+        },
+        "next": [
+            "Presence_SummonLove_Settle",
+            "Presence_SummonLove_GiveUp"
+        ],
+        "post_delay": 2000,
+        "timeout": 4000
+    },
+    "Presence_SummonLove_Settle": {
+        "doc": "结算页，点底部的「确定」(790,615)。\n\n⚠️ 这个确定**不在** Common_NoticeConfirm 的 ROI 里（x 790 > 740），通用节点够不着，\n必须自己点。\n\n`timeout: 8000` 给得比较宽：快捷战斗虽然快，但要等结算面板渲染出来。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    555,
+                    105,
+                    520,
+                    45
+                ],
+                "expected": [
+                    "战斗结算"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {"target": [
+                    790,
+                    615
+                ]}
+        },
+        "next": ["Presence_SummonLove_PhaseDone"],
+        "post_delay": 1200,
+        "timeout": 8000
+    },
+    "Presence_SummonLove_GiveUp": {
+        "doc": "导航放弃：退不出子页 / 找不到「多元裂缝」/ 卡片点了没反应 / 结算面板没出现。\n\n⚠️ 它**不等于「任务失败」** —— 页面滞留、活动临时下架、界面改版都会走到这里。\n看状态文件时「使魔的爱 done」只表示「这一段走过去了」，不保证真打过了；\n真打过的判据是游戏里「快捷战斗」按钮消失。\n\n宁可这一次不做，也不要把整条日常炸掉（§5.9② 的 next 全失配）。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "Presence_SummonLove_PhaseDone"
+        ]
+    },
+    "Presence_SummonLove_PhaseDone": {
+        "doc": "使魔的爱收尾：写完成状态，交给世界那么大。\n\n四类出口都汇到这里（Quick 打完、确认框取消、结算确定、导航放弃），\n完成状态只写一处。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "phase_end",
+                "custom_action_param": {"phase": "使魔的爱"}
+            }
+        },
         "next": ["Presence_WorldSoBig_Gate"]
+    },
+
+    "Presence_SummonLove_Nav": {
+        "doc": "导航到「使魔的爱」关卡详情页。线性下降链，理由同 Summon_Nav。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Presence_SummonLove_Nav01Battle"]
+    },
+    "Presence_SummonLove_Nav01Battle": {
+        "doc": "导航第 1 步：点顶部「战斗」。\n\n⚠️ ROI 右边界止于 840：右邻「装备」的文字框从 857 起，再宽就会一起框进来。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    720,
+                    20,
+                    120,
+                    110
+                ],
+                "expected": [
+                    "战斗"
+                ]
+            }
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": ["Presence_SummonLove_Nav02Gate"],
+        "post_delay": 1500,
+        "timeout": 4000
+    },
+    "Presence_SummonLove_Nav02Gate": {
+        "doc": "主菜单判定 + 退回循环的**汇合点**。\n\n顺序很重要：先看左侧竖栏在不在（Activity 命中就说明已经在主菜单），\n不在才去点右上角返回上一层。反过来会把主菜单当成子页去点右上角。\n\nmax_hit 10 是退层次的刹车：战斗下面的层级最深是「关卡详情页 → 多元裂缝 → 主菜单」\n两三层，10 次绰绰有余；万一卡在某个不认识的子页，转 10 圈后落到 GiveUp。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "Presence_SummonLove_Nav02Activity",
+            "Presence_SummonLove_Nav02Up",
+            "Presence_SummonLove_GiveUp"
+        ],
+        "post_delay": 1000,
+        "max_hit": 10
+    },
+    "Presence_SummonLove_Nav02Activity": {
+        "doc": "主菜单左侧竖栏的「活动」。它只在战斗主菜单存在 —— 子页里这一列会整个换掉，\n所以它同时也是「已经在主菜单」的判据。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    10,
+                    225,
+                    180,
+                    80
+                ],
+                "expected": [
+                    "活动"
+                ]
+            }
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": ["Presence_SummonLove_Nav03Gate"],
+        "post_delay": 1500,
+        "timeout": 3000
+    },
+    "Presence_SummonLove_Nav02Up": {
+        "doc": "点右上角的**子菜单名按钮**返回上一层（(1155,155) 写死）。\n\n判据是那个 ROI 里出现已知的子页名 —— 按钮文字就是当前子页名，所以只能枚举。\n新增战斗子页时**记得把名字加进 expected**，否则会认不出、退不回去。\n\n⚠️ 主菜单上这个位置是「崩坏之塔」的宣传图（文字到 x≈1010 就结束了），\nROI 从 1040 起，不会误匹配 ✓。而且主菜单的情况已经被 Nav02Activity 先接住了，\n这里根本不会被求值。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    1040,
+                    120,
+                    230,
+                    60
+                ],
+                "expected": [
+                    "多元裂缝",
+                    "虚轴之庭",
+                    "螺旋回廊",
+                    "曜日挑战",
+                    "崩坏之塔",
+                    "精神羁绊",
+                    "搏击训练室",
+                    "使魔的爱"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {"target": [
+                    1155,
+                    155
+                ]}
+        },
+        "next": ["Presence_SummonLove_Nav02Gate"],
+        "post_delay": 1200,
+        "timeout": 3000
+    },
+    "Presence_SummonLove_Nav03Gate": {
+        "doc": "右侧列找「多元裂缝」的**汇合点**。找不到就往下滑一屏再看，\n因为有**滑动位置的滞留** —— 上次滑到哪儿，这次进去就还在哪儿。\n\nmax_hit 8：右侧列一共就几张卡，滑 8 次足够到底。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "Presence_SummonLove_Nav03Rift",
+            "Presence_SummonLove_Nav03Scroll",
+            "Presence_SummonLove_GiveUp"
+        ],
+        "post_delay": 800,
+        "max_hit": 8
+    },
+    "Presence_SummonLove_Nav03Rift": {
+        "doc": "右侧列里的「多元裂缝」。点在识别框中心（卡片标题那一行本身就属于卡片）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    745,
+                    330,
+                    500,
+                    130
+                ],
+                "expected": [
+                    "多元裂缝"
+                ]
+            }
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": [
+            "Presence_SummonLove_Nav04Pick",
+            "Presence_SummonLove_GiveUp"
+        ],
+        "post_delay": 1500,
+        "timeout": 3000
+    },
+    "Presence_SummonLove_Nav03Scroll": {
+        "doc": "右侧列向下滑一屏。(1000,500) → (1000,220)：起终点都避开左右两侧的按钮列，\n只在滚动列表的空白纵向带上滑，避免误触。duration 800ms —— 太快会被当成惯性甩动。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {
+            "type": "Swipe",
+            "param": {
+                "begin": [
+                    1000,
+                    500
+                ],
+                "end": [
+                    1000,
+                    220
+                ],
+                "duration": 800
+            }
+        },
+        "next": ["Presence_SummonLove_Nav03Gate"],
+        "post_delay": 800
+    },
+    "Presence_SummonLove_Nav04Pick": {
+        "doc": "多元裂缝页里选「使魔的爱」。\n\n⚠️ 识别框（标题文字，y≈412）和点击点 (630,470) 故意分开：标题在卡片上方，\n直接点标题不一定能进，点卡片本体才稳。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    545,
+                    395,
+                    175,
+                    40
+                ],
+                "expected": [
+                    "使魔的爱"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {"target": [
+                    630,
+                    470
+                ]}
+        },
+        "next": [
+            "Presence_SummonLove_Quick",
+            "Presence_SummonLove_GiveUp"
+        ],
+        "post_delay": 1500,
+        "timeout": 3000
     },
     "Presence_WorldSoBig_Gate": {
         "doc": "切点：每日任务「世界这么大」——挑战一次「虚轴之庭」的任意关卡。⭐ 消耗体力。\n\n默认是**执行**；关掉时改写为 Presence_ZhanLiBuQiang_Gate。",
