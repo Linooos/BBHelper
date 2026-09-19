@@ -4,6 +4,7 @@
 """
 
 import json
+import re
 from typing import Any
 
 from maa.agent.agent_server import AgentServer
@@ -136,4 +137,67 @@ class PresenceFindTaskRow(CustomRecognition):
                 "title_box": [t_x, t_y, t_w, t_h],
                 "gap": gap,
             },
+        )
+
+
+@AgentServer.custom_recognition("resonance_free_left")
+class ResonanceFreeLeft(CustomRecognition):
+    """读共鸣屋的「剩余次数 N次」，判断免费刷新还剩几次。
+
+    为什么必须是 CustomRecognition，而不能用纯 pipeline：
+        纯 pipeline 只能表达「文本命中 / 不命中」，**没法做数字比较**。
+        而「剩余次数归零 → 刷新要花零时之种」这个判断，本质就是 N 与某个下限比大小。
+        OCR 出来的整串是「剩余次数2次」，得把数字抠出来才能比。
+
+    custom_recognition_param:
+        roi        要 OCR 的区域，默认盖住「剩余次数 N次」那一行
+        min_left   下限（含）。默认 1 = 「至少还剩 1 次免费」
+        base_node  OCR 基座节点
+
+    返回:
+        box = 命中的文本框（N >= min_left 时），否则 box=None。
+        调用方把 None 当作「没有免费次数」处理。
+
+    ⚠️ 解析失败（没找到、抠不出数字）一律返回 None，即保守地判成「没免费次数」。
+       宁可少刷新一次，也不要错判成有次数而按下去 —— 那会消耗零时之种。
+    """
+
+    def analyze(
+        self,
+        context: Context,
+        argv: CustomRecognition.AnalyzeArg,
+    ) -> CustomRecognition.AnalyzeResult:
+        param = json.loads(argv.custom_recognition_param or "{}") or {}
+
+        roi = param.get("roi") or [870, 128, 210, 36]
+        min_left = int(param.get("min_left", 1))
+        base_node = param.get("base_node", OCR_BASE_NODE)
+
+        hits = _ocr(context, argv.image, roi, ["剩余次数"], base_node)
+        if not hits:
+            return CustomRecognition.AnalyzeResult(
+                box=None,
+                detail={"error": "未找到「剩余次数」（可能不在共鸣屋页）"},
+            )
+
+        hit = max(hits, key=lambda r: getattr(r, "score", 0.0) or 0.0)
+        text = str(getattr(hit, "text", "") or "")
+
+        m = re.search(r"(\d+)", text)
+        if m is None:
+            return CustomRecognition.AnalyzeResult(
+                box=None,
+                detail={"error": "「剩余次数」里没抠出数字", "text": text},
+            )
+
+        left = int(m.group(1))
+        if left < min_left:
+            return CustomRecognition.AnalyzeResult(
+                box=None,
+                detail={"free_left": left, "min_left": min_left, "text": text},
+            )
+
+        return CustomRecognition.AnalyzeResult(
+            box=list(hit.box),
+            detail={"free_left": left, "min_left": min_left, "text": text},
         )

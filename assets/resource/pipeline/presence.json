@@ -186,22 +186,22 @@
         "next": ["Daily_Stamina"]
     },
     "Presence_Resonance_Gate": {
-        "doc": "切点：每日任务「共鸣之力」——刷新一次「共鸣屋」中的商品。⚡ 可能消耗水晶。\n\n默认是**跳过**，理由同战力补强。打开后改写为 Presence_Resonance_Task。\n\n排在体力消耗**之后**：刷完体力顺手刷新共鸣屋，任务清单顺序与界面上选项顺序一致。",
+        "doc": "切点：每日任务「共鸣之力」——刷新一次「共鸣屋」中的商品。⚡ 剩余次数归零后会消耗零时之种。\n\n默认是**跳过**，理由同战力补强。打开后改写为 Presence_Resonance_Task。\n子选项「使用代币刷新」控制次数归零后要不要继续刷（默认不刷）。\n\n排在体力消耗**之后**：刷完体力顺手刷新共鸣屋，任务清单顺序与界面上选项顺序一致。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
         "next": ["Daily_ClaimRewards"]
     },
     "Presence_Resonance_Task": {
-        "doc": "共鸣之力：刷新一次「共鸣屋」中的商品。\n\n路径（2026-09-19 实机走通）：顶部「商店」→ 店铺网格右上角的「崩坏屋」卡片 → 左侧栏「共鸣屋」→ 点「剩余次数」右侧的圆形刷新按钮 → 弹「提示 / 你确定要进行免费刷新吗？」→ 点「确定」。实测剩余次数 3次→2次、商品整批换新、水晶未变。\n\n⚡ 安全设计：**只有弹窗正文明确写着「免费刷新」才会点确定**。免费次数用完时游戏会弹消耗水晶的确认框，那时绝不能点确定（见 ConfirmFree / ConfirmPaid）。本任务在界面上默认关闭。\n\n【页面滞留】进崩坏屋会直接落在**上次访问的子页**。上次是共鸣屋就直接可用；不是则靠 Nav03Resonance 补一步。",
+        "doc": "共鸣之力：刷新一次「共鸣屋」中的商品。\n\n路径（2026-09-19 实机走通）：顶部「商店」→ 店铺网格右上角的「崩坏屋」卡片 → 左侧栏「共鸣屋」→ 点「剩余次数」右侧的圆形刷新按钮 → 弹「提示 / 你确定要进行免费刷新吗？」→ 点「确定」。实测剩余次数 3次→2次、商品整批换新。\n\n═══ 免费 / 付费的判定（用户 2026-09-19 纠正）═══\n判据是**「剩余次数 N次」这个数字本身**（就写在刷新按钮左边），不是弹窗文案：\n    N >= 1  → 走免费次数，不消耗任何东西\n    N == 0  → 消耗左侧的**零时之种**（紫色代币）\n所以先用 CustomRecognition `resonance_free_left` 把数字抠出来（见 FreeGate），再决定刷不刷 —— 光靠 OCR 命中文本判断不了数字。\n\n本任务在界面上默认关闭；子选项「使用代币刷新」默认也关闭，即**次数归零就不刷**。\n\n【页面滞留】进崩坏屋会直接落在**上次访问的子页**。上次是共鸣屋就直接可用；不是则靠 Nav03Resonance 补一步。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
         "next": [
-            "Presence_Resonance_Refresh",
+            "Presence_Resonance_Do",
             "Presence_Resonance_Nav"
         ]
     },
-    "Presence_Resonance_Refresh": {
-        "doc": "「剩余次数」可见 = 已经在共鸣屋页 → 点它右侧的圆形刷新按钮 (1088,155)。\n\n用「剩余次数」当识别条件一举两得：既是页面判定，又是「可以刷新」的前提 —— 这行字只在有次数时出现。\nmax_hit:1；刷完不在这里判断结果，交给下面两个确认节点。",
+    "Presence_Resonance_Do": {
+        "doc": "页面判定：「剩余次数」可见 = 已经在共鸣屋页。**只判定不点击**。\n\n它是 FreeGate / TokenGate 的前置。那两个的下游（ClickRefresh）是恒命中的，必须先由这一层 OCR 把「在不在这页」确定下来，否则人不在共鸣屋时也会去按 (1088,155)。",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -216,6 +216,47 @@
                 ]
             }
         },
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "Presence_Resonance_FreeGate",
+            "Presence_Resonance_TokenGate",
+            "Presence_Resonance_Abort"
+        ]
+    },
+    "Presence_Resonance_FreeGate": {
+        "doc": "⭐ 免费次数判定：把「剩余次数 N次」里的 N 抠出来，**N >= 1 才命中**。\n\n纯 pipeline 做不到这件事 —— OCR 只能告诉你「看到了『剩余次数』」，没法比较数字。\n抠不出数字时一律判为不命中（保守）：宁可少刷一次，也不要误判成有次数而花掉零时之种。",
+        "recognition": {
+            "type": "Custom",
+            "param": {
+                "custom_recognition": "resonance_free_left",
+                "custom_recognition_param": {
+                    "roi": [
+                        870,
+                        128,
+                        210,
+                        36
+                    ],
+                    "min_left": 1
+                }
+            }
+        },
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "Presence_Resonance_ClickRefresh"
+        ]
+    },
+    "Presence_Resonance_TokenGate": {
+        "doc": "付费刷新切点：只有 FreeGate 没命中（= 剩余次数为 0）时才会走到这里。\n\n由界面子选项「使用代币刷新」控制 enabled：\n    打开 → 用零时之种刷新\n    关闭 → 本节点失配 → 落到 Abort，**不刷新**（这是默认行为）\n\n恒命中（DirectHit）在这里是安全的：它只被 Presence_Resonance_Do 的 next 求值一次，不像 [JumpBack] 目标那样会被反复重入。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "Presence_Resonance_ClickRefresh"
+        ],
+        "enabled": false
+    },
+    "Presence_Resonance_ClickRefresh": {
+        "doc": "点「剩余次数」右侧的圆形刷新按钮 (1088,155)。走到这里说明「刷不刷」已经决定好了，这里只管按。",
+        "recognition": {"type": "DirectHit", "param": {}},
         "action": {
             "type": "Click",
             "param": {"target": [
@@ -225,15 +266,15 @@
         },
         "next": [
             "Presence_Resonance_ConfirmFree",
-            "Presence_Resonance_ConfirmPaid",
+            "Presence_Resonance_ConfirmToken",
+            "Presence_Resonance_ConfirmCancel",
             "Presence_Resonance_Abort"
         ],
         "post_delay": 800,
-        "timeout": 3000,
-        "max_hit": 1
+        "timeout": 3000
     },
     "Presence_Resonance_ConfirmFree": {
-        "doc": "⭐ 专属确认：**弹窗正文必须含「免费刷新」才点「确定」**。\n\n这是本任务唯一的消耗防线。剩余次数为 0 时游戏弹的是要花水晶的确认框，正文不含「免费刷新」→ 本节点不命中 → 落到 ConfirmPaid 去点「取消」。\n\n⚠️ 刻意**不接** Common_PopupGate / Common_NoticeConfirm —— 那些看到「确定」就点，对这里是致命的（中央确定的位置与普通提示框完全重合）。\n\n点的是写死的 (546,455)，不是识别框中心 —— 识别 ROI 罩的是正文，不是按钮。",
+        "doc": "免费刷新的确认框：正文含「免费刷新」才点「确定」。\n\n点的是写死的 (546,455) —— 识别 ROI 罩的是正文，不是按钮，所以不能用识别框中心。\n\n⚠️ 刻意**不接** Common_PopupGate / Common_NoticeConfirm：中央「确定」的位置和普通提示框完全重合，通用节点看到「确定」就点，在这里是致命的。",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -261,8 +302,37 @@
         "post_delay": 800,
         "timeout": 3000
     },
-    "Presence_Resonance_ConfirmPaid": {
-        "doc": "兜底：弹窗在，但正文不是「免费刷新」—— 说明这次刷新要花水晶。点「取消」退出，不刷新。\n\n免费次数用完时的**正常**路径，不是错误。点的是识别框中心（「取消」按钮本身）。",
+    "Presence_Resonance_ConfirmToken": {
+        "doc": "零时之种刷新的确认框：正文含「零时之种」才点「确定」。\n\n只有 FreeGate 判定「剩余次数为 0」且子选项「使用代币刷新」打开时才会走到这里。\n\n⚠️ TODO(待验证)：这个弹窗的**实际文案没有实机确认过** —— 写这段时免费次数还剩 2 次，没法在不消耗的情况下看到归零后的弹窗。现在是按用户给的代币名「零时之种」推的。\n如果文案里不含这三个字，本节点不会命中 → 落到 ConfirmCancel 点「取消」：**安全但刷不成**。等次数真用完、看到弹窗后回来改 expected。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    420,
+                    300,
+                    460,
+                    50
+                ],
+                "expected": [
+                    "零时之种"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {"target": [
+                    546,
+                    455
+                ]}
+        },
+        "next": [
+            "Daily_ClaimRewards"
+        ],
+        "post_delay": 800,
+        "timeout": 3000
+    },
+    "Presence_Resonance_ConfirmCancel": {
+        "doc": "兜底：弹窗在，但正文既不是「免费刷新」也不是「零时之种」。**一律点「取消」退出，不刷新。**\n\n这是本任务的最后一道防线 —— 任何不认识的确认框都不点「确定」。\n点的是识别框中心（「取消」按钮本身）。",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -341,7 +411,7 @@
         },
         "action": {"type": "Click", "param": {}},
         "next": [
-            "Presence_Resonance_Refresh",
+            "Presence_Resonance_Do",
             "Presence_Resonance_Nav03Resonance",
             "Presence_Resonance_Abort"
         ],
@@ -366,7 +436,7 @@
         },
         "action": {"type": "Click", "param": {}},
         "next": [
-            "Presence_Resonance_Refresh",
+            "Presence_Resonance_Do",
             "Presence_Resonance_Abort"
         ],
         "post_delay": 1200,
