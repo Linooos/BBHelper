@@ -1,4 +1,12 @@
 {
+    // Maa Pipeline Support 插件通过「终端任务」启动 Agent（命令形如 `python ./agent/main.py <socket_id>`），
+    // 而 interface.json 里 agent.child_exec 写的是发布布局的 `python`。
+    // 本机没有系统 Python，所以把项目 venv 的 Scripts 目录追加进终端 PATH，
+    // 让 `python` 能解析到 .venv 里的解释器 —— 这样 interface.json 保持发布布局不变。
+    // ⚠️ 改完需要重启 VS Code（或重开终端）才生效。
+    "terminal.integrated.env.windows": {
+        "PATH": "${env:PATH};${workspaceFolder}\\.venv\\Scripts"
+    },
     "json.schemas": [
         {
             "fileMatch": [
