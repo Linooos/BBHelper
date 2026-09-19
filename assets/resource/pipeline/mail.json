@@ -190,7 +190,7 @@
         "max_hit": 1
     },
     "Mail_PhaseDone": {
-        "doc": "邮件阶段结束，交给使魔探险阶段。",
+        "doc": "邮件阶段结束，交给使魔探险切点（Daily_Summon 再决定跑还是跳）。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -200,7 +200,7 @@
             "param": {}
         },
         "next": [
-            "Summon_Entry"
+            "Daily_Summon"
         ]
     }
 }

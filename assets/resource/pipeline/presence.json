@@ -120,7 +120,7 @@
             "[JumpBack]Common_DenyList",
             "[JumpBack]Common_NoticeConfirm",
             "Presence_ClaimMilestone",
-            "Presence_CombatTask_Gate"
+            "Presence_SummonLove_Gate"
         ],
         "max_hit": 12
     },
@@ -148,53 +148,59 @@
             "[JumpBack]Common_TapToDismiss",
             "[JumpBack]Common_DenyList",
             "[JumpBack]Common_NoticeConfirm",
-            "Presence_CombatTask_Gate"
+            "Presence_SummonLove_Gate"
         ],
         "post_delay": 800,
         "timeout": 3000,
         "max_hit": 2
     },
-    "Presence_CombatTask_Gate": {
-        "doc": "分类切点：火线救援（使魔的爱）/ 世界这么大（虚轴之庭），消耗体力，走快捷战斗。默认直通到下一个切点；interface.json 打开「战斗类每日」时会把具体任务节点插到这里。",
-        "recognition": {
-            "type": "DirectHit",
-            "param": {}
-        },
-        "action": {
-            "type": "DoNothing",
-            "param": {}
-        },
-        "next": [
-            "Presence_ShopPurchase_Gate"
-        ]
+    "Presence_SummonLove_Gate": {
+        "doc": "切点：每日任务「火线救援」——通关一次多元裂缝关卡「使魔的爱」。⭐ 消耗体力 30。\n\n默认是**执行**（next 指向 _Task）；interface.json 关掉「使魔的爱」时改写为 Presence_WorldSoBig_Gate。\n\n⚠️ 这是**扁平切点链**，不是嵌套分支：每个 Gate 都直接给出「执行」和「跳过」两个目标，跳过 = 指向下一个切点。项目早期用 Gate 节点做条件分支，结果是「next 全不中 → 整条任务报错」，改成这种扁平写法后就没有那个问题了（见 dev_loop.md）。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Presence_SummonLove_Task"]
     },
-    "Presence_ShopPurchase_Gate": {
-        "doc": "分类切点：战力补强（真实消费）。默认直通；由 interface.json 的「购物类每日」控制。",
-        "recognition": {
-            "type": "DirectHit",
-            "param": {}
-        },
-        "action": {
-            "type": "DoNothing",
-            "param": {}
-        },
-        "next": [
-            "Presence_Resonance_Gate"
-        ]
+    "Presence_SummonLove_Task": {
+        "doc": "TODO(待实现)：使魔的爱。\n\n预期路线：存在感页找到「火线救援」那一行的「前往」按钮（CustomRecognition presence_find_task_row 就是为这个写的，已验证能返回同行按钮的 box）→ 点进关卡详情页 →「快捷战斗」秒过结算 → 返回存在感页。\n\n目前是**空壳**：DirectHit + DoNothing，只把路由打通，不做任何点击。等引导确认关卡入口与「今日剩余次数 1/1」的性质后再填。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Presence_WorldSoBig_Gate"]
+    },
+    "Presence_WorldSoBig_Gate": {
+        "doc": "切点：每日任务「世界这么大」——挑战一次「虚轴之庭」的任意关卡。⭐ 消耗体力。\n\n默认是**执行**；关掉时改写为 Presence_ZhanLiBuQiang_Gate。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Presence_WorldSoBig_Task"]
+    },
+    "Presence_WorldSoBig_Task": {
+        "doc": "TODO(待实现)：世界这么大。预期路线同使魔的爱，但入口在活动标签 → 右侧滚动栏「多元裂缝 / 虚轴之庭」。目前是空壳。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Presence_ZhanLiBuQiang_Gate"]
+    },
+    "Presence_ZhanLiBuQiang_Gate": {
+        "doc": "切点：每日任务「战力补强」——购买一件「礼包商店」中的商品。⚡ **真实消费**。\n\n默认是**跳过**（next 直指下一个切点），与界面默认值一致：这是**主号**，消耗性操作必须在界面上显式打开。打开后改写为 Presence_ZhanLiBuQiang_Task。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Presence_Resonance_Gate"]
+    },
+    "Presence_ZhanLiBuQiang_Task": {
+        "doc": "TODO(待实现)：战力补强。购买逻辑**需要用户现场引导**（商品位置 / 价格 / 最便宜的那件），不预先猜测。\n\n⚠️ 实现时注意：中央「确定」(640,483) 既可能是普通提示、也可能是消耗确认框。购买流程必须先把通用 Common_NoticeConfirm 从 next 里摘掉，改用带文案校验的专属确认节点，否则可能把「确认购买」当成普通提示点掉。Common_DenyList 是最后一道闸。目前是空壳。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Presence_Resonance_Gate"]
     },
     "Presence_Resonance_Gate": {
-        "doc": "分类切点：共鸣之力（刷新共鸣屋，可能消耗水晶）。默认直通；由 interface.json 的「共鸣屋刷新」控制。",
-        "recognition": {
-            "type": "DirectHit",
-            "param": {}
-        },
-        "action": {
-            "type": "DoNothing",
-            "param": {}
-        },
-        "next": [
-            "Presence_Evaluate"
-        ]
+        "doc": "切点：每日任务「共鸣之力」——刷新一次「共鸣屋」中的商品。⚡ 可能消耗水晶。\n\n默认是**跳过**，理由同战力补强。打开后改写为 Presence_Resonance_Task。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Presence_Evaluate"]
+    },
+    "Presence_Resonance_Task": {
+        "doc": "TODO(待实现)：共鸣之力。高消耗风险（刷新可能花水晶），实现时必须走专属确认节点 + Common_DenyList，不能复用通用弹窗节点。目前是空壳。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Presence_Evaluate"]
     },
     "Presence_Evaluate": {
         "doc": "汇总点：所有分类任务执行完后的汇合处。",
@@ -222,6 +228,28 @@
         },
         "next": [
             "Daily_Stamina"
+        ]
+    },
+    "ClaimRewards_Entry": {
+        "doc": "TODO(待实现)：收尾领奖。跑完邮件 / 使魔探险 / 存在感四类任务 / 体力消耗之后，回存在感页把这一轮新解锁的奖励收掉（里程碑星星 20/40/60/80/100/150 的「一键领取」，以及任何变成「可领取」的任务行）。\n\n⚠️ 实现时**不要**直接复用 Presence_ClaimMilestone：那个节点的 next 会落进 Presence_SummonLove_Gate → … → Presence_PhaseDone → Daily_Stamina，等于把整个存在感+体力阶段又跑一遍，直接成环。这条收尾链要独立，领完直达 ClaimRewards_PhaseDone。\n\n目前是**空壳**：DirectHit + DoNothing，只把路由打通。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "ClaimRewards_PhaseDone"
+        ]
+    },
+    "ClaimRewards_PhaseDone": {
+        "doc": "收尾领奖阶段结束，交给每周任务阶段。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Daily_Weekly"
         ]
     }
 }

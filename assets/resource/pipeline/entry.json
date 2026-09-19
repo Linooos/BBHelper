@@ -1,9 +1,9 @@
 {
     "Daily_CleanUp": {
-        "doc": "总入口。阶段顺序：Mail → Summon → Presence → Stamina → Weekly → Finish。不需要额外的「回大厅」阶段：每个阶段的导航链自己会从任意页面把游戏带回目标页（Nav_GotoXxx 逐级降级）。",
+        "doc": "总入口。阶段顺序：邮件 → 使魔探险 → 存在感 → 体力消耗 → 领取任务奖励 → 每周任务 → 终点。\n\n中间的 Daily_* 节点全是**切点**（DirectHit + DoNothing），本身不干活，只做路由：interface.json 里对应的开关把它的 next 改写到「执行」或「跳过」两个方向。pipeline 里的默认值 = 界面的默认值（免费的操作默认跑，消耗性的默认跳）。\n\n不需要额外的「回大厅」阶段：每个阶段的导航链自己会从任意页面把游戏带回目标页（Nav_GotoXxx 逐级降级）。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
-        "next": ["Mail_Entry"]
+        "next": ["Daily_Mail"]
     },
 
     "App_Launch": {
@@ -13,25 +13,43 @@
             "type": "StartApp",
             "param": {"package": "com.miHoYo.HSoDv2Original"}
         },
-        "next": ["Mail_Entry"],
+        "next": ["Daily_Mail"],
         "post_delay": 3000
     },
 
+    "Daily_Mail": {
+        "doc": "切点：邮件领取。Yes→Mail_Entry；No→Daily_Summon。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Mail_Entry"]
+    },
+
+    "Daily_Summon": {
+        "doc": "切点：使魔探险（每日任务「星辰的彼方」）。Yes→Summon_Entry；No→Presence_Entry。\n\n⚠️ 这里必须用切点，不能直接 override Summon_Entry 的 next —— Summon_Entry 同时是独立任务「仅使魔探险」的入口，改它会把那个任务一起改坏。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Summon_Entry"]
+    },
+
     "Daily_Stamina": {
-        "doc": "体力消耗循环的切点。Yes→Stamina_Entry（其后 Stamina_PhaseDone 会接 Daily_Weekly）；No→直接 Daily_Weekly。",
+        "doc": "切点：体力消耗循环。Yes→Stamina_Entry（其后 Stamina_PhaseDone 会接 Daily_ClaimRewards）；No→直接 Daily_ClaimRewards。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
         "next": ["Stamina_Entry"]
     },
 
-    "Daily_Weekly": {
-        "doc": "每周任务的切点。Yes→Weekly_Entry；No→直接 Daily_Finish。",
+    "Daily_ClaimRewards": {
+        "doc": "切点：收尾领奖。跑完前面所有任务后回存在感页，把这一轮新解锁的里程碑/任务奖励收掉。Yes→ClaimRewards_Entry；No→Daily_Weekly。\n\n排在体力消耗**之后**是有意的：体力消耗产生的存在感也在这一轮里解锁，早领会漏。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
-        "next": [
-            "Weekly_Entry",
-            "Daily_Finish"
-        ]
+        "next": ["ClaimRewards_Entry"]
+    },
+
+    "Daily_Weekly": {
+        "doc": "切点：每周任务。Yes→Weekly_Entry；No→直接 Daily_Finish。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Weekly_Entry"]
     },
 
     "Daily_Finish": {

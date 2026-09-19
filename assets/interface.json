@@ -9,11 +9,16 @@
     //  ⚠️ 安全约定（主号）：
     //    本脚本对「消耗资源 / 不可逆」的操作一律**默认关闭**，
     //    需要用户在界面上显式打开对应开关才会执行。
-    //    详见各 option 的 description。
+    //    带 ⚡ 标记的选项即属此类。详见各 option 的 description。
+    //
+    //  开关的实现方式：每个 option 的 pipeline_override 改写一个
+    //  「切点」节点的 next —— Yes 指向任务节点，No 指向下一个切点。
+    //  切点本身只做路由（DirectHit + DoNothing），不含业务逻辑。
+    //  因此 **pipeline 里的默认 next = 本文件的 default_case**，两边必须一致。
     // ════════════════════════════════════════════════════════════════
     "interface_version": 2,
     "name": "BBHelper",
-    "description": "崩坏学园2 日常清理：每日签到、邮件领取、存在感每日任务、使魔探险、每周任务。",
+    "description": "崩坏学园2 日常清理：邮件领取、使魔探险、存在感每日任务（使魔的爱 / 世界那么大 / 战力补强 / 共鸣之力 / 体力消耗）、收尾领奖、每周任务。",
     "contact": "",
     "license": "MIT",
     "welcome": "使用前请确认：\n1. 游戏已在 MuMu 模拟器中运行并登录\n2. 模拟器分辨率保持 1280×720 横屏\n3. 用 ADB 方式连接，不要用 Win32 窗口方式（会黑屏）",
@@ -67,23 +72,27 @@
         {
             "name": "日常清理",
             "entry": "Daily_CleanUp",
+            // 顺序 = 管线里的阶段顺序，见 entry.json 的 Daily_CleanUp。
             "option": [
                 "邮件领取",
                 "领取体力邮件",
                 "使魔探险",
-                "战斗类每日",
-                "购物类每日",
-                "共鸣屋刷新",
-                "体力消耗循环",
+                "使魔的爱",
+                "世界那么大",
+                "战力补强",
+                "共鸣之力",
+                "体力消耗",
                 "体力目标",
+                "领取以上任务奖励",
                 "每周任务"
             ]
         },
         {
             "name": "仅领邮件",
             "entry": "Mail_Entry",
+            // 这个任务本身就是「领邮件」，所以不列「邮件领取」开关
+            // （那个开关改的是 Daily_Mail 切点，不在本任务的链上）。
             "option": [
-                "邮件领取",
                 "领取体力邮件"
             ]
         },
@@ -105,6 +114,7 @@
         }
     ],
     "option": {
+        // ────────────── 邮件 ──────────────
         "邮件领取": {
             "type": "switch",
             "description": "领取邮件附件（点「一键领取」）。不会触碰「一键删除」。",
@@ -113,10 +123,9 @@
                 {
                     "name": "Yes",
                     "pipeline_override": {
-                        "Mail_Entry": {
+                        "Daily_Mail": {
                             "next": [
-                                "Mail_Loop",
-                                "Mail_Nav"
+                                "Mail_Entry"
                             ]
                         }
                     }
@@ -124,9 +133,9 @@
                 {
                     "name": "No",
                     "pipeline_override": {
-                        "Mail_Entry": {
+                        "Daily_Mail": {
                             "next": [
-                                "Mail_PhaseDone"
+                                "Daily_Summon"
                             ]
                         }
                     }
@@ -135,7 +144,7 @@
         },
         "领取体力邮件": {
             "type": "switch",
-            "description": "领取邮件里的体力。⚠️ 若体力已溢出（如 1975/204），领取会直接浪费，故默认关闭。",
+            "description": "领取邮件里的体力。⚡ 若体力已溢出（如 1975/204），领取会直接浪费，故默认关闭。",
             "default_case": "No",
             "cases": [
                 {
@@ -156,17 +165,18 @@
                 }
             ]
         },
+        // ────────────── 使魔探险 ──────────────
         "使魔探险": {
             "type": "switch",
-            "description": "领取已完成（「探索完成」）的探险奖励，并把已接取数补到上限。对应每日任务「星辰的彼方」。",
+            "description": "每日任务「星辰的彼方」：派遣或收回一次使魔探险。\n\n领取已完成（「探索完成」）的探险奖励，并把已接取数补到上限。领取即算「收回」，所以默认开。",
             "default_case": "Yes",
             "cases": [
                 {
                     "name": "Yes",
                     "pipeline_override": {
-                        "Summon_Entry": {
+                        "Daily_Summon": {
                             "next": [
-                                "Summon_PhaseDone"
+                                "Summon_Entry"
                             ]
                         }
                     }
@@ -174,26 +184,27 @@
                 {
                     "name": "No",
                     "pipeline_override": {
-                        "Summon_Entry": {
+                        "Daily_Summon": {
                             "next": [
-                                "Summon_PhaseDone"
+                                "Presence_Entry"
                             ]
                         }
                     }
                 }
             ]
         },
-        "战斗类每日": {
+        // ────────────── 存在感：战斗类 ──────────────
+        "使魔的爱": {
             "type": "switch",
-            "description": "火线救援（使魔的爱）、世界这么大（虚轴之庭）。走「快捷战斗」秒过，会消耗体力。",
+            "description": "每日任务「火线救援」：通过一次多元裂缝关卡「使魔的爱」。\n\n⭐ 消耗体力 30。走「快捷战斗」秒过，不进战斗。",
             "default_case": "Yes",
             "cases": [
                 {
                     "name": "Yes",
                     "pipeline_override": {
-                        "Presence_CombatTask_Gate": {
+                        "Presence_SummonLove_Gate": {
                             "next": [
-                                "Presence_Evaluate"
+                                "Presence_SummonLove_Task"
                             ]
                         }
                     }
@@ -201,26 +212,54 @@
                 {
                     "name": "No",
                     "pipeline_override": {
-                        "Presence_CombatTask_Gate": {
+                        "Presence_SummonLove_Gate": {
                             "next": [
-                                "Presence_Evaluate"
+                                "Presence_WorldSoBig_Gate"
                             ]
                         }
                     }
                 }
             ]
         },
-        "购物类每日": {
+        "世界那么大": {
             "type": "switch",
-            "description": "⚡ 战力补强：购买一件「礼包商店」商品，会**真实消费**。默认关闭。",
+            "description": "每日任务「世界这么大」：挑战一次「虚轴之庭」的任意关卡。\n\n⭐ 消耗体力。虚轴之庭在活动标签右侧滚动栏的「多元裂缝」里。",
+            "default_case": "Yes",
+            "cases": [
+                {
+                    "name": "Yes",
+                    "pipeline_override": {
+                        "Presence_WorldSoBig_Gate": {
+                            "next": [
+                                "Presence_WorldSoBig_Task"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "No",
+                    "pipeline_override": {
+                        "Presence_WorldSoBig_Gate": {
+                            "next": [
+                                "Presence_ZhanLiBuQiang_Gate"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        // ────────────── 存在感：消耗类 ──────────────
+        "战力补强": {
+            "type": "switch",
+            "description": "每日任务「战力补强」：购买一件「礼包商店」中的商品。\n\n⚡ **真实消费**，不可逆，所以默认关闭。\n⬜ 尚未实现：购买逻辑需要现场引导确认商品与价格，当前打开开关也不会有动作。",
             "default_case": "No",
             "cases": [
                 {
                     "name": "Yes",
                     "pipeline_override": {
-                        "Presence_ShopPurchase_Gate": {
+                        "Presence_ZhanLiBuQiang_Gate": {
                             "next": [
-                                "Presence_Evaluate"
+                                "Presence_ZhanLiBuQiang_Task"
                             ]
                         }
                     }
@@ -228,18 +267,18 @@
                 {
                     "name": "No",
                     "pipeline_override": {
-                        "Presence_ShopPurchase_Gate": {
+                        "Presence_ZhanLiBuQiang_Gate": {
                             "next": [
-                                "Presence_Evaluate"
+                                "Presence_Resonance_Gate"
                             ]
                         }
                     }
                 }
             ]
         },
-        "共鸣屋刷新": {
+        "共鸣之力": {
             "type": "switch",
-            "description": "⚡ 共鸣之力：刷新一次「共鸣屋」商品，可能消耗水晶。默认关闭。",
+            "description": "每日任务「共鸣之力」：刷新一次「共鸣屋」中的商品。\n\n⚡ 刷新可能消耗水晶，所以默认关闭。\n⬜ 尚未实现：当前打开开关也不会有动作。",
             "default_case": "No",
             "cases": [
                 {
@@ -247,7 +286,7 @@
                     "pipeline_override": {
                         "Presence_Resonance_Gate": {
                             "next": [
-                                "Presence_Evaluate"
+                                "Presence_Resonance_Task"
                             ]
                         }
                     }
@@ -264,9 +303,10 @@
                 }
             ]
         },
-        "体力消耗循环": {
+        // ────────────── 体力消耗 ──────────────
+        "体力消耗": {
             "type": "switch",
-            "description": "刷关卡累计消耗体力，一次性完成「千锤百炼 / 勤劳的魔女 / 精益求精」三条。会消耗体力。",
+            "description": "刷关卡累计消耗体力，一次性完成「千锤百炼（200） / 勤劳的魔女（180） / 精益求精（300）」三条。\n\n⭐ 消耗体力。刷满 300 即可同时完成三条。\n⬜ 尚未实现：还没确定哪个关卡可重复刷，当前是空壳。",
             "default_case": "Yes",
             "cases": [
                 {
@@ -284,7 +324,7 @@
                     "pipeline_override": {
                         "Daily_Stamina": {
                             "next": [
-                                "Daily_Weekly"
+                                "Daily_ClaimRewards"
                             ]
                         }
                     }
@@ -340,9 +380,37 @@
                 }
             ]
         },
+        // ────────────── 收尾 ──────────────
+        "领取以上任务奖励": {
+            "type": "switch",
+            "description": "跑完上面所有任务后回存在感页收尾，把这一轮新解锁的奖励领掉（里程碑星星 20/40/60/80/100/150 的「一键领取」）。\n\n排在体力消耗**之后**，这样体力消耗产生的存在感也一起收进来。\n⬜ 尚未实现：当前是空壳。",
+            "default_case": "Yes",
+            "cases": [
+                {
+                    "name": "Yes",
+                    "pipeline_override": {
+                        "Daily_ClaimRewards": {
+                            "next": [
+                                "ClaimRewards_Entry"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "No",
+                    "pipeline_override": {
+                        "Daily_ClaimRewards": {
+                            "next": [
+                                "Daily_Weekly"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
         "每周任务": {
             "type": "switch",
-            "description": "执行每周存在感任务（满分 550）。",
+            "description": "执行每周存在感任务（满分 550）。\n⬜ 尚未实现：当前是直通骨架。",
             "default_case": "Yes",
             "cases": [
                 {
@@ -367,6 +435,7 @@
                 }
             ]
         },
+        // ────────────── 通用通关专用 ──────────────
         "使用双倍券": {
             "type": "switch",
             "description": "⚡ 进入关卡时勾选「使用双倍券」。⚠️ 双倍券是**双倍消耗换双倍奖励**（实测：标称消耗 10 的关卡用了之后扣 20 体力），且是消耗品，所以默认关闭。\n\n开启后**关头关尾都会勾**：关卡详情页的复选框，以及 BONUS 关卡结算界面上的复选框（后者用于「再次挑战」的下一轮）。",

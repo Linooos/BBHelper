@@ -25,9 +25,9 @@
     },
 
     "Stamina_PhaseDone": {
-        "doc": "体力阶段结束，交给每周任务阶段。",
+        "doc": "体力阶段结束，交给收尾领奖切点（Daily_ClaimRewards 再决定跑还是跳）。排在领奖之前是有意的：这一轮消耗体力产生的存在感，要在收尾时一起领掉。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
-        "next": ["Daily_Weekly"]
+        "next": ["Daily_ClaimRewards"]
     }
 }
