@@ -138,6 +138,57 @@ uv pip install Pillow
 
 ---
 
+### 4.5 VS Code 的 Maa Pipeline Support 插件（推荐优先用它）
+
+插件（`nekosu.maa-support`）**能**启动 Agent，而且是仓库文档明确推荐的调试方式
+——「只有 Maa Pipeline Support 插件支持在运行 pipeline 时自动启动 debug session
+并自动插入 socket id」。有断点、能单节点调试，比 `dev_run.py` 好用。
+
+> 更正一个容易误解的说法：**「MaaMCP 起不了 Agent」只限制 MaaMCP 自己**，
+> 不影响插件。三者分工：插件（交互调试）＞ `dev_run.py`（命令行批量验证）＞
+> MaaMCP（纯 OCR/模板匹配的快速探查）。
+
+配置时踩了两个坑：
+
+**坑一：`child_exec: "python"` 在本机不存在**
+
+本机没有系统 Python；uv 管的解释器也不在 PATH 上。而
+`C:\Users\...\AppData\Local\Microsoft\WindowsApps\python.exe` 只是个
+**Microsoft Store 转接存根**（`AppInstallerPythonRedirector.exe`），
+所以报的是「Python was not found」。
+
+修法：**不改 interface.json**，改为在 `.vscode/settings.json` 给集成终端补 PATH
+（插件是通过一条 PowerShell 终端任务启动 Agent 的）：
+
+```jsonc
+"terminal.integrated.env.windows": {
+    "PATH": "${env:PATH};${workspaceFolder}\\.venv\\Scripts"
+}
+```
+
+改完**必须重启 VS Code 或重开集成终端**才生效。
+
+**坑二：开发布局与发布布局不一致，`./agent/main.py` 落错地方** ⚠️
+
+调用方以 **interface.json 所在目录为 CWD** 启动 Agent：
+
+| | interface.json | agent/ | `./agent/main.py` 解析成 |
+| --- | --- | --- | --- |
+| 发布布局 | `install/` | `install/agent/` | ✅ |
+| **开发布局** | `assets/` | `<仓库根>/agent/` | ❌ `assets/agent/main.py` |
+
+所以本仓库的 `child_args` 写的是 **`../agent/main.py`**（开发期路径），
+由 `tools/install.py` 在打包时改回 `./agent/main.py`。
+
+**不要**为了绕过它把 `agent/` 复制一份到 `assets/agent/` —— 那会造成两份代码，
+以后改了一份、跑的是另一份，极难排查。
+
+> 插件另有个 `{PROJECT_DIR}` 变量（= interface.json 所在目录）可用，
+> 但那是**插件私有**变量，MaaFramework 本体不认，会把 interface.json 弄成插件专用。
+> 所以还是走「开发期路径 + 打包时改写」。
+
+---
+
 ## 5. 坐标系
 
 **1280 × 720 横屏**，短边即 720，所以坐标空间就是 1280×720，

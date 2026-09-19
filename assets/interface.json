@@ -35,15 +35,19 @@
             ]
         }
     ],
-    // Agent 配置。路径按 **发布布局** 写：tools/install.py 会把 assets/interface.json
-    // 和 agent/ 平铺到 install/ 根目录，所以这里是 ./agent/main.py。
+    // Agent 配置。**这里是开发期路径**：interface.json 在 assets/ 下，而 agent/ 在仓库根，
+    // 所以用 ../agent/main.py。调用方以 interface.json 所在目录为 CWD 启动 Agent，
+    // 因此 ./agent/main.py 会落到 assets/agent/（不存在）。
     //
-    // ⚠️ 开发期请勿依赖这个块：MaaMCP 起不了 Agent（见 docs/zh_cn/develop/dev_loop.md），
-    //    调 Custom* 节点请用 tools/dev_run.py（它自己拉起 agent 子进程，不读这里）。
+    // ⚠️ 发布布局不同：tools/install.py 把 assets/interface.json 和 agent/ 平铺到 install/ 根，
+    //    那时必须改回 ./agent/main.py。**install.py 已包含这个改写步骤**，不要手动改。
+    //
+    // child_exec 用 "python"：发布产物会附带便携 Python；开发期由
+    // .vscode/settings.json 的 terminal.integrated.env.windows 把 .venv\Scripts 加进终端 PATH。
     "agent": {
         "child_exec": "python",
         "child_args": [
-            "./agent/main.py"
+            "../agent/main.py"
         ]
     },
     "task": [

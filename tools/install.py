@@ -118,6 +118,18 @@ def install_resource():
 
     interface["version"] = version
 
+    # 开发期 interface.json 在 assets/ 下、agent/ 在仓库根，所以 child_args 写的是
+    # ../agent/main.py；发布布局把 interface.json 和 agent/ 平铺到 install/ 根，
+    # 调用方又以 interface.json 所在目录为 CWD，因此这里必须改回 ./agent/main.py。
+    agent = interface.get("agent")
+    if isinstance(agent, dict):
+        args = agent.get("child_args")
+        if isinstance(args, list):
+            agent["child_args"] = [
+                a.replace("../agent/", "./agent/") if isinstance(a, str) else a
+                for a in args
+            ]
+
     with open(install_path / "interface.json", "w", encoding="utf-8") as f:
         jsonc.dump(interface, f, ensure_ascii=False, indent=4)
 
