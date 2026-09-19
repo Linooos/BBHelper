@@ -1,1 +1,4 @@
-json-with-comments
+# 打包 / 校验工具的依赖（CI 在跑 install.py 之前装这个）。
+# 注意：**agent 的运行期依赖不在这里**，见 ../agent/requirements.txt
+# （那个的版本必须和 MaaFramework 对齐，不能随手升）。
+json-with-comments==1.3.0

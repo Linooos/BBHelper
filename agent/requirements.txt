@@ -1,0 +1,24 @@
+# Agent 运行期依赖。
+#
+# ⚠️⚠️ 版本必须与**调用方**的 MaaFramework 版本一致，绝不能随手升级。
+#
+# 为什么：MaaFramework 的 Agent 协议有版本号，客户端与服务端对不上时
+# AgentServer 会**直接拒连**，而且**不弹任何提示** —— 表现是「跑任务什么
+# 都没发生」，日志里只有一行 Protocol version mismatch。
+# 2026-09-19 在这上面卡了很久，细节见 docs/zh_cn/develop/dev_loop.md §4.5。
+#
+# 调用方有两类，各自的框架版本来源不同：
+#
+#   1. VS Code 的 Maa Pipeline Support 插件
+#      版本 = 插件自带的那份：
+#          <globalStorage>/nekosu.maa-support/native/install/<版本>/
+#      改插件版本后要回来把这里对齐。
+#
+#   2. 发布产物（MFAAvalonia）
+#      用它自己带的框架，同样要求一致。
+#
+# 当前对齐的是 **5.12.2**（插件自带 5.12.2）。
+#
+# 安装：
+#     uv pip install --python .venv/Scripts/python.exe -r agent/requirements.txt
+maafw==5.12.2

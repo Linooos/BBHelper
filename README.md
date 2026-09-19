@@ -1,43 +1,115 @@
 <!-- markdownlint-disable MD033 MD041 -->
-<p align="center">
-  <img alt="LOGO" src="https://cdn.jsdelivr.net/gh/MaaAssistantArknights/design@main/v1/icons/maa-logo_512x512.png" width="256" height="256" />
-</p>
-
 <div align="center">
 
-# MaaPracticeBoilerplate
+# BBHelper
+
+崩坏学园2（官服）日常清理脚本，基于 [MaaFramework](https://github.com/MaaXYZ/MaaFramework)
 
 </div>
 
-本仓库为 [MaaFramework](https://github.com/MaaXYZ/MaaFramework) 所提供的项目模板，开发者可基于此模板直接创建自己的 MaaXXX 项目。
+一键跑完当天的每日内容：领邮件、收使魔探险、清存在感每日任务、刷体力、收尾领奖。
 
-> **MaaFramework** 是基于图像识别技术、运用 [MAA](https://github.com/MaaAssistantArknights/MaaAssistantArknights) 开发经验去芜存菁、完全重写的新一代自动化黑盒测试框架。
-> 低代码的同时仍拥有高扩展性，旨在打造一款丰富、领先、且实用的开源库，助力开发者轻松编写出更好的黑盒测试程序，并推广普及。
+## 使用前提
 
-## 即刻开始
+| 项 | 要求 |
+| --- | --- |
+| 游戏 | 崩坏学园2 **官服**（包名 `com.miHoYo.HSoDv2Original`） |
+| 载体 | MuMu 模拟器，**必须用 ADB 方式连接**（Win32 窗口方式会黑屏） |
+| 分辨率 | **1280×720 横屏**，且模拟器不要改缩放 |
+| 状态 | 游戏已登录、能正常进大厅 |
 
-**请不要直接克隆本仓库！你应该通过模板创建自己的项目！**  
+## 日常清理包含什么
 
-请阅读 [如何开发](./docs/zh_cn/develop/how_to_develop.md)。
+`日常清理` 任务按下面的顺序执行，每一步都能在界面上单独开关：
 
-向本模板仓库提交改动前，请阅读 [PR 规范](./docs/zh_cn/develop/pull_request_guidelines.md)。
+| 阶段 | 做什么 | 消耗 |
+| --- | --- | --- |
+| 启动 | 冷启动游戏、点掉启动弹窗、进大厅 | — |
+| 邮件领取 | 点「一键领取」收附件 | — |
+| 使魔探险 | 领已完成的探险奖励，并补满已接取数 | — |
+| 使魔的爱 | 多元裂缝关卡，走「快捷战斗」 | 体力 30 |
+| 世界那么大 | 虚轴之庭任意关卡，走「快捷战斗」 | 免费次数 |
+| 战力补强 | 礼包商店买「**零时馈礼**」 | **免费**（标价 ×0） |
+| 体力消耗 | 刷「喵王の福利」累计消耗体力，一次做完三条累计任务 | 体力（每次 10） |
+| 共鸣之力 | 刷新共鸣屋商品 | 免费次数内不消耗 |
+| 领取以上任务奖励 | 回存在感页收掉里程碑奖励 | — |
+| 每周任务 | ⬜ 尚未实现 | — |
 
-## 生态共建
+## 安全约定
 
-MAA 正计划建设为一类项目，而非舟的单一软件。
+本脚本按「主号爱惜」设计，**所有消耗性操作默认关闭**，需要你在界面上显式打开：
 
-若您的项目依赖于 MaaFramework，我们欢迎您将它命名为 MaaXXX, MXA, MAX 等等。当然，这是许可而不是限制，您也可以自由选择其他与 MAA 无关的名字，完全取决于您自己的想法！
+- **战力补强** —— 买的是标价 ×0 的「零时馈礼」，实测免费；默认**开启**
+- **共鸣之力** —— 免费刷新次数用完后会消耗「零时之种」，默认**关闭**
+- **使用双倍券** —— 双倍消耗换双倍奖励，且是消耗品，默认**关闭**
+- **不领取体力邮件** —— 体力溢出时领取是浪费，默认**不领取**
 
-同时，我们也非常欢迎您提出 PR，在 [社区项目列表](https://github.com/MaaXYZ/MaaFramework#%E7%A4%BE%E5%8C%BA%E9%A1%B9%E7%9B%AE) 中添加上您的项目！
+脚本**只在能确认安全时才动手**：
 
-## 常见问题
+- 共鸣屋刷新只认弹窗正文写着「免费刷新」的；其余一律点「取消」
+- 快捷战斗灰着（未解锁）时跳过并记为「未完成」，不会误报成功
+- 邮件页的「一键删除」不在任何识别区域内
+- 道具商店买什么写死为「零时馈礼」，不会点错到付费商品
 
-请阅读 [常见问题](./docs/zh_cn/develop/faq.md)。
+## 界面选项
+
+`日常清理` 下面挂着一组子选项，其中两条是**只在打开「体力消耗」时才出现**的：
+
+```text
+体力消耗
+ ├─ 关卡来源 → 预设关卡（目前只有「喵王の福利」）/ 自定义关卡（⬜ 未实现）
+ ├─ 刷关次数
+ └─ 体力目标（180 / 200 / 300）
+```
+
+「体力目标」会**折算成刷关次数**：脚本读关卡详情页的「消耗体力 N」，
+用目标值除它。比如目标 300、喵王每次 10 体力 → 刷 30 次。
+
+## 运行状态记录
+
+每次跑完会在 `state/YYYY-MM-DD.json` 留一份记录。用下面的命令查看：
+
+```bash
+python tools/show_state.py            # 今天
+python tools/show_state.py 2026-09-20 # 指定日期
+```
+
+三种状态要分清：
+
+| 状态 | 含义 |
+| --- | --- |
+| `done` | **游戏里真的做成了** |
+| `skipped` | 流程正常走过去了，但这一步没产生实际效果（比如快捷战斗没解锁） |
+| `started` | 进去了没出来 —— **中途失败/卡死的阶段就是它** |
+
+## 已知限制
+
+- **每周任务**尚未实现，选中也不会有动作
+- **自定义关卡**只有占位，未实现
+- **每日签到弹窗**未处理（当前没观察到复现条件）
+- 「体力目标」折算**没有扣掉今天已消耗的部分**，会多刷几次
+- 关卡导航按**关卡所在页面**各写一条链，目前只有「喵王の福利」那条
+- 只支持 1280×720；换分辨率需要重新量坐标
+
+## 开发
+
+```bash
+# 依赖（版本必须与 MaaFramework 对齐，见 agent/requirements.txt 的说明）
+uv pip install --python .venv/Scripts/python.exe -r agent/requirements.txt
+
+# 命令行跑一条任务（会打印每个节点的识别结果）
+.venv/Scripts/python.exe tools/dev_run.py Daily_CleanUp
+.venv/Scripts/python.exe tools/dev_run.py --list-only   # 只列已注册的 Custom*
+
+# 打包
+python tools/install.py v0.1.0 win x86_64
+```
+
+调试中踩过的坑都在 [docs/zh_cn/develop/dev_loop.md](./docs/zh_cn/develop/dev_loop.md)，
+游戏侧的侦察结论在 [docs/zh_cn/develop/game_recon.md](./docs/zh_cn/develop/game_recon.md)。
+改 pipeline 之前建议先扫一遍前者 —— 里面几条（`next`/`[JumpBack]` 语义、
+「OCR 读得到文字 ≠ 按钮可点」）不看会反复踩。
 
 ## 鸣谢
 
-本项目由 **[MaaFramework](https://github.com/MaaXYZ/MaaFramework)** 强力驱动！
-
-感谢以下开发者对本项目作出的贡献（下面链接改成你自己的项目地址）:
-
-[![Contributors](https://contrib.rocks/image?repo=MaaXYZ/MaaFramework&max=1000)](https://github.com/MaaXYZ/MaaFramework/graphs/contributors)
+本项目由 **[MaaFramework](https://github.com/MaaXYZ/MaaFramework)** 强力驱动。
