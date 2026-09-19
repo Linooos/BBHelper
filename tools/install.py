@@ -118,17 +118,19 @@ def install_resource():
 
     interface["version"] = version
 
-    # Agent 块：开发期在 assets/interface.json 里是**注释掉的**
-    # （取消注释会让 VS Code 的 Maa Pipeline Support 插件改走「终端命令启动」那条路，
-    #   而本机没有系统 python，会连环报 Python not found / No module named 'maa'）。
-    # 但发布产物**必须**有这个块 —— MFAAvalonia 靠它启动 AgentServer，
-    # 否则所有 CustomRecognition / CustomAction 节点都会失效。所以这里补上。
+    # Agent 块：发布产物**必须**有，否则所有 CustomRecognition / CustomAction
+    # 节点都会失效（实测报 Action is null）。
     #
-    # 路径用 ./agent/main.py：install_agent() 会把 agent/ 拷到 install/agent/，
-    # 与 interface.json 平级；调用方以 interface.json 所在目录为 CWD。
+    # 路径用 {PROJECT_DIR}/agent/main.py —— install_agent() 会把 agent/ 拷到
+    # install/agent/，与 interface.json 平级，而插件的 {PROJECT_DIR} 就是
+    # interface.json 所在目录，正好对上。
+    #
+    # ⚠️ child_exec 这里留 "python"（假定运行环境 PATH 上有）：开发机上没有
+    # 系统 python，所以 assets/interface.json 里那份用的是项目 venv 的绝对路径，
+    # 两边的形态本来就不同、不能互相照抄。
     interface["agent"] = {
         "child_exec": "python",
-        "child_args": ["./agent/main.py"],
+        "child_args": ["{PROJECT_DIR}/agent/main.py"],
     }
 
     with open(install_path / "interface.json", "w", encoding="utf-8") as f:

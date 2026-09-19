@@ -90,7 +90,6 @@
         "post_delay": 1200,
         "timeout": 4000
     },
-
     "Presence_ClaimMilestone": {
         "doc": "领取顶部里程碑奖励（20/40/60/80/100/150 六个星星的「一键领取」）。按钮在页头右侧，x 区间与邮件页的「一键领取」无关。领完会弹「已领取以下奖励」（点空白处关闭）。\n\n`max_hit: 2` 是因为领完后按钮可能仍以置灰形态在，OCR 照样读得到文字；限次收敛，避免死循环。\n\n⚠️ 本节点**只属于收尾领奖链**（ClaimRewards_Entry）。用户 2026-09-19 明确了分工：领取存在感奖励是最后一步的事，不属于存在感各类任务的阶段。所以 next 落点是 ClaimRewards_PhaseDone，**绝不能再挂 Presence_SummonLove_Gate 那一串** —— 那会把存在感任务 + 体力消耗整条链再跑一遍，直接成环。",
         "recognition": {
@@ -129,7 +128,9 @@
             "type": "Custom",
             "param": {
                 "custom_action": "phase_begin",
-                "custom_action_param": {"phase": "收尾领奖"}
+                "custom_action_param": {
+                    "phase": "收尾领奖"
+                }
             }
         },
         "next": [
@@ -147,28 +148,42 @@
             "type": "Custom",
             "param": {
                 "custom_action": "phase_end",
-                "custom_action_param": {"phase": "收尾领奖"}
+                "custom_action_param": {
+                    "phase": "收尾领奖"
+                }
             }
         },
         "next": [
             "Daily_Weekly"
         ]
     },
-
     "Presence_SummonLove_Gate": {
         "doc": "切点：每日任务「火线救援」——通关一次多元裂缝关卡「使魔的爱」。⭐ 消耗体力 30。\n\n默认是**执行**（next 指向 _Task）；interface.json 关掉「使魔的爱」时改写为 Presence_WorldSoBig_Gate。\n\n⚠️ 这是**扁平切点链**，不是嵌套分支：每个 Gate 都直接给出「执行」和「跳过」两个目标，跳过 = 指向下一个切点。项目早期用 Gate 节点做条件分支，结果是「next 全不中 → 整条任务报错」，改成这种扁平写法后就没有那个问题了（见 dev_loop.md）。\n\n⚠️ 各 Gate 的「下一个切点」必须与对应 _Task 的 next 落点一致，否则开关拨动前后的路径会分叉。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
-        "next": ["Presence_SummonLove_Task"]
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Presence_SummonLove_Task"
+        ]
     },
     "Presence_SummonLove_Task": {
         "doc": "使魔的爱（每日任务「火线救援」）。⭐ 消耗体力 30。\n\n路径（2026-09-19 实机走通）：首页 → 顶部「战斗」→ 左侧竖栏「活动」→ 右侧列「多元裂缝」→ 「使魔的爱」卡片 → 关卡详情页「快捷战斗」→ 确认框「确定」→ 结算页「确定」。\n实测：体力 999→969（扣 30），返回详情页后「今日剩余次数」1/1 → 0/1，**「快捷战斗」按钮消失**。\n\n═══ 「今天已完成」的天然判据 ═══\n打完一次后「快捷战斗」按钮就没有了。所以下面 Nav 之后落到的 Quick 节点\n本身就是「还没打完」的判定 —— 打完了它不命中，也不会误点。\n\n═══ 页面滞留（用户提醒，已实测确认）═══\n「战斗」和它下面的子菜单都会**记住上次停留的页**。所以进「战斗」不一定在主菜单，\n可能直接在某个子页里。回到上一层靠**点右上角的子菜单名按钮** (1155,155)，\n它在每个子页都有，点一次上一层。Nav02Gate 那个循环就是干这个的。\n\n═══ ⚠️ 本链**刻意不接** Common_PopupGate / Common_NoticeConfirm ═══\n快捷战斗的确认框（标题「快捷战斗」，确定 (557,470) / 取消 (720,470)）\n**两个按钮都落在 Common_NoticeConfirm 的 ROI [540,430,200,70] 里** ——\n通用节点会点错。和「共鸣之力」一样，用带文案校验的专属确认节点。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "Custom",
             "param": {
                 "custom_action": "phase_begin",
-                "custom_action_param": {"phase": "使魔的爱"}
+                "custom_action_param": {
+                    "phase": "使魔的爱"
+                }
             }
         },
         "next": [
@@ -192,7 +207,10 @@
                 ]
             }
         },
-        "action": {"type": "Click", "param": {}},
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
         "next": [
             "Presence_SummonLove_Confirm",
             "Presence_SummonLove_GiveUp"
@@ -218,10 +236,12 @@
         },
         "action": {
             "type": "Click",
-            "param": {"target": [
+            "param": {
+                "target": [
                     557,
                     470
-                ]}
+                ]
+            }
         },
         "next": [
             "Presence_SummonLove_Settle",
@@ -248,41 +268,65 @@
         },
         "action": {
             "type": "Click",
-            "param": {"target": [
+            "param": {
+                "target": [
                     790,
                     615
-                ]}
+                ]
+            }
         },
-        "next": ["Presence_SummonLove_PhaseDone"],
+        "next": [
+            "Presence_SummonLove_PhaseDone"
+        ],
         "post_delay": 1200,
         "timeout": 8000
     },
     "Presence_SummonLove_GiveUp": {
         "doc": "导航放弃：退不出子页 / 找不到「多元裂缝」/ 卡片点了没反应 / 结算面板没出现。\n\n⚠️ 它**不等于「任务失败」** —— 页面滞留、活动临时下架、界面改版都会走到这里。\n看状态文件时「使魔的爱 done」只表示「这一段走过去了」，不保证真打过了；\n真打过的判据是游戏里「快捷战斗」按钮消失。\n\n宁可这一次不做，也不要把整条日常炸掉（§5.9② 的 next 全失配）。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "Presence_SummonLove_PhaseDone"
         ]
     },
     "Presence_SummonLove_PhaseDone": {
         "doc": "使魔的爱收尾：写完成状态，交给世界那么大。\n\n四类出口都汇到这里（Quick 打完、确认框取消、结算确定、导航放弃），\n完成状态只写一处。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "Custom",
             "param": {
                 "custom_action": "phase_end",
-                "custom_action_param": {"phase": "使魔的爱"}
+                "custom_action_param": {
+                    "phase": "使魔的爱"
+                }
             }
         },
-        "next": ["Presence_WorldSoBig_Gate"]
+        "next": [
+            "Presence_WorldSoBig_Gate"
+        ]
     },
-
     "Presence_SummonLove_Nav": {
         "doc": "导航到「使魔的爱」关卡详情页。线性下降链，理由同 Summon_Nav。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
-        "next": ["Presence_SummonLove_Nav01Battle"]
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Presence_SummonLove_Nav01Battle"
+        ]
     },
     "Presence_SummonLove_Nav01Battle": {
         "doc": "导航第 1 步：点顶部「战斗」。\n\n⚠️ ROI 右边界止于 840：右邻「装备」的文字框从 857 起，再宽就会一起框进来。",
@@ -300,7 +344,10 @@
                 ]
             }
         },
-        "action": {"type": "Click", "param": {}},
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
         "next": [
             "Presence_SummonLove_Nav02Gate",
             "Presence_SummonLove_GiveUp"
@@ -310,8 +357,14 @@
     },
     "Presence_SummonLove_Nav02Gate": {
         "doc": "**层级判定 + 退回循环的汇合点。**\n\n每轮就一件事：**看左侧竖栏在不在。**\n  在  → 已经在战斗主菜单了，点「活动」往下走\n  不在 → 在某个子页里，点一下右上角那个蓝色按钮退一层，回到本节点重来\n\n顺序不能反：反了会把主菜单当成子页去点右上角（那里是「崩坏之塔」宣传图）。\n\n═══ 为什么层级判定放在这一层 ═══\nNav02Up 因此可以是**无条件点击**，不需要猜子页名。层级判断只写一次、\n放在这里，Nav02Up 只管点 —— 活动上新、子页改名都不会让它失效。\n\n═══ 刹车 ═══\n`max_hit: 10`：战斗下面的层级最深是「关卡详情页 → 多元裂缝 → 主菜单」两三层，\n10 次绰绰有余。耗尽后本节点失配，由调用方（Nav01Battle / Nav02Up）的\nnext 落到 GiveUp。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "Presence_SummonLove_Nav02Activity",
             "Presence_SummonLove_Nav02Up"
@@ -335,20 +388,30 @@
                 ]
             }
         },
-        "action": {"type": "Click", "param": {}},
-        "next": ["Presence_SummonLove_Nav03Reset"],
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "Presence_SummonLove_Nav03Reset"
+        ],
         "post_delay": 1500,
         "timeout": 3000
     },
     "Presence_SummonLove_Nav02Up": {
         "doc": "点右上角的**蓝色子菜单名按钮**返回上一层（(1155,155) 写死）。\n\n═══ 为什么是 DirectHit，不做任何文本校验（用户 2026-09-19 的设计意见）═══\n最初这里枚举了已知子页名做判据（「按钮文字就是当前子页名，所以只能枚举」）——\n那是**脆弱的写法**：活动一上新、子页一改名，就退不回去了。\n\n正解是：**层级判定交给 Nav02Gate 那一层**（看左侧竖栏在不在）。\n走到本节点 ⟹ 左侧竖栏已经确认不在 ⟹ 必定在某个子页 ⟹ 右上角必定有那个返回按钮。\n既然前置条件已经保证，这里再猜一次文字就是多余且易错的。\n\nDirectHit 在这里也安全：它只被 Nav02Gate 的 next 求值，而 Nav02Gate 每轮\n最多命中 max_hit 次，循环有刹车（见 Nav02Gate 的 doc）。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "Click",
-            "param": {"target": [
+            "param": {
+                "target": [
                     1155,
                     155
-                ]}
+                ]
+            }
         },
         "next": [
             "Presence_SummonLove_Nav02Gate",
@@ -358,7 +421,10 @@
     },
     "Presence_SummonLove_Nav03Reset": {
         "doc": "⭐⭐ **先无条件滑回顶部**，再交给下面往前扫描。\n\n═══ 为什么必须这样做（2026-09-19 实机踩到）═══\n右侧列的滑动位置是**滞留**的。第一次跑通了，第二次却失败了 —— 截图显示\n右侧列已经滑过头：「多元裂缝」的卡片滚出视野，只剩它的副标题残影留在顶部。\n而当时 Scroll 只会**往下**滑，永远回不到上面去，空转 8 轮后任务报错。\n\n滑动滞留意味着列表位置是**未知**的，所以扫描前必须先把它归零。\n归零方式是朝反方向连滑几次 —— 滑到顶之后继续滑是无效动作，天然安全。\n\n动作是「手指往下拖」(300→460)，内容跟着下移，露出上面被挡住的卡片。\n\n═══ 步长 160px，不是越大越好（用户提醒）═══\n一开始拖 280px，一步跨得太远 —— 卡片会整张从识别区跳过去。\n720px 的屏幕上一屏能看到约 3 张卡，160px 的步子刚好是三分之一屏，\n既不会漏也不会原地打转。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "Swipe",
             "param": {
@@ -381,19 +447,31 @@
     },
     "Presence_SummonLove_Nav03ResetGate": {
         "doc": "归零循环的汇合点：每滑一次就找一次「多元裂缝」。\n\n多半第一下就命中 —— 实测「多元裂缝」是右列第二张卡，回到顶部后直接可见。\nmax_hit 4 只是兜底（列表再长，4 次下滑也到顶了）；耗尽后回到\nNav03Reset 的 next，进入往前扫描那一段。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "Presence_SummonLove_Nav03Rift",
             "Presence_SummonLove_Nav03Reset"
         ],
         "post_delay": 600,
-        "max_hit": 8
+        "max_hit": 3
     },
     "Presence_SummonLove_Nav03Gate": {
         "doc": "右侧列**往前扫描**「多元裂缝」的汇合点。找不到就往下滑一屏再看。\n\n⚠️ 本节点只负责「往下」。往回找的能力在 Nav03Reset —— 顺序是先 Reset 归零、\n再走到这里往前扫，两者合起来才是完整的「全列表可达」。\n\nmax_hit 6：右侧列一共就几张卡，滑 6 次足够到底。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "Presence_SummonLove_Nav03Rift",
             "Presence_SummonLove_Nav03Scroll",
@@ -418,7 +496,10 @@
                 ]
             }
         },
-        "action": {"type": "Click", "param": {}},
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
         "next": [
             "Presence_SummonLove_Nav04Pick",
             "Presence_SummonLove_GiveUp"
@@ -428,7 +509,10 @@
     },
     "Presence_SummonLove_Nav03Scroll": {
         "doc": "右侧列向下滑一屏。(1000,500) → (1000,220)：起终点都避开左右两侧的按钮列，\n只在滚动列表的空白纵向带上滑，避免误触。duration 800ms —— 太快会被当成惯性甩动。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "Swipe",
             "param": {
@@ -443,7 +527,9 @@
                 "duration": 300
             }
         },
-        "next": ["Presence_SummonLove_Nav03Gate"],
+        "next": [
+            "Presence_SummonLove_Nav03Gate"
+        ],
         "post_delay": 800
     },
     "Presence_SummonLove_Nav04Pick": {
@@ -464,10 +550,12 @@
         },
         "action": {
             "type": "Click",
-            "param": {"target": [
+            "param": {
+                "target": [
                     630,
                     470
-                ]}
+                ]
+            }
         },
         "next": [
             "Presence_SummonLove_Quick",
@@ -478,42 +566,87 @@
     },
     "Presence_WorldSoBig_Gate": {
         "doc": "切点：每日任务「世界这么大」——挑战一次「虚轴之庭」的任意关卡。⭐ 消耗体力。\n\n默认是**执行**；关掉时改写为 Presence_ZhanLiBuQiang_Gate。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
-        "next": ["Presence_WorldSoBig_Task"]
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Presence_WorldSoBig_Task"
+        ]
     },
     "Presence_WorldSoBig_Task": {
         "doc": "TODO(待实现)：世界这么大。预期路线同使魔的爱，但入口在活动标签 → 右侧滚动栏「多元裂缝 / 虚轴之庭」。目前是空壳。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
-        "next": ["Presence_ZhanLiBuQiang_Gate"]
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Presence_ZhanLiBuQiang_Gate"
+        ]
     },
     "Presence_ZhanLiBuQiang_Gate": {
         "doc": "切点：每日任务「战力补强」——购买一件「礼包商店」中的商品。⚡ **真实消费**。\n\n默认是**跳过**（next 直指体力消耗切点），与界面默认值一致：这是**主号**，消耗性操作必须在界面上显式打开。打开后改写为 Presence_ZhanLiBuQiang_Task。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
-        "next": ["Daily_Stamina"]
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Daily_Stamina"
+        ]
     },
     "Presence_ZhanLiBuQiang_Task": {
         "doc": "TODO(待实现)：战力补强。购买逻辑**需要用户现场引导**（商品位置 / 价格 / 最便宜的那件），不预先猜测。\n\n⚠️ 实现时注意：中央「确定」(640,483) 既可能是普通提示、也可能是消耗确认框。购买流程必须先把通用 Common_NoticeConfirm 从 next 里摘掉，改用带文案校验的专属确认节点，否则可能把「确认购买」当成普通提示点掉。Common_DenyList 是最后一道闸。目前是空壳。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
-        "next": ["Daily_Stamina"]
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Daily_Stamina"
+        ]
     },
     "Presence_Resonance_Gate": {
         "doc": "切点：每日任务「共鸣之力」——刷新一次「共鸣屋」中的商品。⚡ 剩余次数归零后会消耗零时之种。\n\n默认是**跳过**，理由同战力补强。打开后改写为 Presence_Resonance_Task。\n子选项「使用代币刷新」控制次数归零后要不要继续刷（默认不刷）。\n\n排在体力消耗**之后**：刷完体力顺手刷新共鸣屋，任务清单顺序与界面上选项顺序一致。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
-        "next": ["Daily_ClaimRewards"]
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Daily_ClaimRewards"
+        ]
     },
     "Presence_Resonance_Task": {
         "doc": "共鸣之力：刷新一次「共鸣屋」中的商品。\n\n路径（2026-09-19 实机走通）：顶部「商店」→ 店铺网格右上角的「崩坏屋」卡片 → 左侧栏「共鸣屋」→ 点刷新按钮 → 弹「提示」→ 点「确定」。已实测：免费刷新两次（3次→2次→1次→0次），商品每次都整批换新。\n\n═══ 免费 / 付费的判定（用户 2026-09-19 纠正）═══\n判据是刷新按钮左边那行字的**数字**，不是弹窗文案：\n    N >= 1  → 走免费次数，不消耗任何东西\n    N == 0  → 消耗**零时之种**（紫色代币，左侧显示当前数量）\n\n⚠️ 而且 N 归零时**整行标签会换掉**：\n    「剩余次数 N次」  →  「消耗1零时之种」\n所以所有 OCR 判据都必须同时认这两种形态（见 Do 节点）。\n\n数字比较由 CustomRecognition `resonance_free_left` 完成（见 FreeGate）——\n光靠 OCR 命中文本判断不了数字大小。\n\n本任务在界面上默认关闭；子选项「使用代币刷新」默认也关闭，即**次数归零就不刷**。\n\n【页面滞留】进崩坏屋会直接落在**上次访问的子页**。上次是共鸣屋就直接可用；不是则靠 Nav03Resonance 补一步。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "Custom",
             "param": {
                 "custom_action": "phase_begin",
-                "custom_action_param": {"phase": "共鸣之力"}
+                "custom_action_param": {
+                    "phase": "共鸣之力"
+                }
             }
         },
         "next": [
@@ -538,7 +671,10 @@
                 ]
             }
         },
-        "action": {"type": "DoNothing", "param": {}},
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "Presence_Resonance_FreeGate",
             "Presence_Resonance_TokenGate",
@@ -562,15 +698,24 @@
                 }
             }
         },
-        "action": {"type": "DoNothing", "param": {}},
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "Presence_Resonance_ClickRefresh"
         ]
     },
     "Presence_Resonance_TokenGate": {
         "doc": "付费刷新切点：只有 FreeGate 没命中（= 免费次数为 0）时才会走到这里。\n\n由界面子选项「使用代币刷新」控制 enabled：\n    打开 → 用零时之种刷新\n    关闭 → 本节点失配 → 落到 Abort，**不刷新**（这是默认行为）\n\n✅ 两条路径都已实机验证（2026-09-19）：\n    enabled=false → Task → Do → Abort，没刷新\n    enabled=true  → Task → Nav → Do → TokenGate → ClickRefresh → ConfirmToken\n                    → 「确定」，实测零时之种 49 → 48，商品换新\n\n恒命中（DirectHit）在这里是安全的：它只被 Presence_Resonance_Do 的 next 求值一次，不像 [JumpBack] 目标那样会被反复重入。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "Presence_Resonance_ClickRefresh"
         ],
@@ -578,13 +723,18 @@
     },
     "Presence_Resonance_ClickRefresh": {
         "doc": "点「剩余次数」右侧的圆形刷新按钮 (1088,155)。走到这里说明「刷不刷」已经决定好了，这里只管按。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "Click",
-            "param": {"target": [
+            "param": {
+                "target": [
                     1088,
                     155
-                ]}
+                ]
+            }
         },
         "next": [
             "Presence_Resonance_ConfirmFree",
@@ -613,10 +763,12 @@
         },
         "action": {
             "type": "Click",
-            "param": {"target": [
+            "param": {
+                "target": [
                     546,
                     455
-                ]}
+                ]
+            }
         },
         "next": [
             "Presence_Resonance_PhaseDone"
@@ -642,10 +794,12 @@
         },
         "action": {
             "type": "Click",
-            "param": {"target": [
+            "param": {
+                "target": [
                     546,
                     455
-                ]}
+                ]
+            }
         },
         "next": [
             "Presence_Resonance_PhaseDone"
@@ -669,7 +823,10 @@
                 ]
             }
         },
-        "action": {"type": "Click", "param": {}},
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
         "next": [
             "Presence_Resonance_PhaseDone"
         ],
@@ -678,20 +835,31 @@
     },
     "Presence_Resonance_Abort": {
         "doc": "放弃点：导航没走通或弹窗没出现时的收尾。宁可这一次不刷，也不要把整条日常炸掉（§5.9② 的「next 全失配 → 整条任务报错」）。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "Presence_Resonance_PhaseDone"
         ]
     },
     "Presence_Resonance_PhaseDone": {
         "doc": "共鸣之力阶段收尾：写完成状态，然后交给收尾领奖。\n\n四类出口（ConfirmFree / ConfirmPaid / Abort / 后面新增的）都汇到这里，\n好处是**阶段完成状态只在一个地方写** —— 不用在每个出口重复挂 phase_end。\n这也是本项目「汇合点」模式的又一次应用（同 Battle_ClearStage_Cycle）。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "Custom",
             "param": {
                 "custom_action": "phase_end",
-                "custom_action_param": {"phase": "共鸣之力"}
+                "custom_action_param": {
+                    "phase": "共鸣之力"
+                }
             }
         },
         "next": [
@@ -700,8 +868,14 @@
     },
     "Presence_Resonance_Nav": {
         "doc": "导航到共鸣屋。线性下降链，理由同 Summon_Nav。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "Presence_Resonance_Nav01Shop"
         ]
@@ -722,7 +896,10 @@
                 ]
             }
         },
-        "action": {"type": "Click", "param": {}},
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
         "next": [
             "Presence_Resonance_Nav02Benghuai"
         ],
@@ -745,7 +922,10 @@
                 ]
             }
         },
-        "action": {"type": "Click", "param": {}},
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
         "next": [
             "Presence_Resonance_Do",
             "Presence_Resonance_Nav03Resonance",
@@ -770,7 +950,10 @@
                 ]
             }
         },
-        "action": {"type": "Click", "param": {}},
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
         "next": [
             "Presence_Resonance_Do",
             "Presence_Resonance_Abort"

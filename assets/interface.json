@@ -41,33 +41,43 @@
         }
     ],
     // ════════════════════════════════════════════════════════════════
-    //  Agent 配置 —— 开发期**必须保持注释状态**，不要取消注释。
+    //  Agent 配置 —— **必须填，否则所有 Custom* 节点失效**。
     //
-    //  Maa Pipeline Support 插件的行为（源码 `buildRuntime`）：
-    //      result.agent = [];
-    //      for (const agent of agents) {
-    //          if (!agent.child_exec) continue;   // 没填 child_exec 就整个跳过
-    //          ...
-    //      }
-    //  也就是说：**不填 agent 块时，插件走自己的机制**（VS Code 的 `maa-launch`
-    //  debug session，用你选定的 Python 解释器启动 AgentServer），本来就能用。
-    //  一旦填了 child_exec，反而会被拽去「用终端命令启动」那条路 —— 那条路依赖
-    //  系统 PATH 上有可用的 python，本机没有，于是连环报
-    //  「Python was not found」/「No module named 'maa'」。
+    //  ⚠️ 本块曾经被误注释掉过（"不填插件也能用"），那是**错的**：
+    //     2026-09-19 实测，注释掉之后跑日常会在第一个 Custom 节点上直接失败：
+    //         [ERR][CustomAction.cpp] Action is null [param.name=phase_begin]
+    //         Task.Failed
+    //     当时只验证了"插件不报错"，没验证 Custom 节点能不能跑。
     //
-    //  ⚠️ 但**发布产物需要这个块**：MFAAvalonia 靠它启动 AgentServer，
-    //     否则所有 CustomRecognition / CustomAction 节点都会失效。
-    //     所以由 tools/install.py 在打包时写入（见该脚本的 install_resource）。
+    //  插件的真实逻辑（源码 buildRuntime + AgentClient）：
+    //      const debug_session = debugSessionMapper[agent.child_exec];
+    //      if (agentConfig.debug_session) { startDebugSession(...) }   // 走调试器
+    //      else if (agentConfig.child_exec) { startTask(child_exec, args) }  // 当终端命令跑
+    //  也就是说 child_exec 既是「可执行文件」又是「调试会话的查找键」。
+    //  本机没有系统 python，走不了也不能走终端那条路，所以这里直接用
+    //  **项目 venv 的 python 全路径**，让它以普通子进程方式启动。
     //
-    //  发布期形态（供参考，不要手工启用）：
-    //      "agent": { "child_exec": "python", "child_args": ["./agent/main.py"] }
+    //  路径变量：插件只认 `{PROJECT_DIR}`（单花括号，不是 ${}）。
+    //  ⚠️ 它不是项目根，而是**interface.json 所在目录**（= assets/）：
+    //      const projectDir = joinPath(activeResource.workspace, activeResource.dirRelative)
+    //  所以下面两个路径都要 `../` 退一级才回到项目根。
+    //
+    //  child_args 末尾插件会自动追加 <identifier>，正好对上 main.py 的 argv[-1]。
+    //
+    //  ⚠️ 这也解释了开发早期那次「Python was not found」的怪事：
+    //     当时写的是 "./agent/main.py"（相对 assets/），而 assets/agent/ 那时
+    //     还躺着一份**陈旧副本** —— 插件跑的是它，所以 Custom 节点全找不到。
+    //     副本删掉后就变成路径直接不存在了。
+    //
+    //  ⚠️ 发布产物由 tools/install.py 另行写入（那边 agent/ 与 interface.json
+    //     平级，路径形态不同），不要指望这一块被直接带过去。
     // ════════════════════════════════════════════════════════════════
-    // "agent": {
-    //     "child_exec": "python",
-    //     "child_args": [
-    //         "./agent/main.py"
-    //     ]
-    // },
+    "agent": {
+        "child_exec": "{PROJECT_DIR}/../.venv/Scripts/python.exe",
+        "child_args": [
+            "{PROJECT_DIR}/../agent/main.py"
+        ]
+    },
     "task": [
         {
             "name": "日常清理",
