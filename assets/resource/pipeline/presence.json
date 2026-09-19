@@ -192,9 +192,184 @@
         "next": ["Daily_ClaimRewards"]
     },
     "Presence_Resonance_Task": {
-        "doc": "TODO(待实现)：共鸣之力。高消耗风险（刷新可能花水晶），实现时必须走专属确认节点 + Common_DenyList，不能复用通用弹窗节点。目前是空壳。",
+        "doc": "共鸣之力：刷新一次「共鸣屋」中的商品。\n\n路径（2026-09-19 实机走通）：顶部「商店」→ 店铺网格右上角的「崩坏屋」卡片 → 左侧栏「共鸣屋」→ 点「剩余次数」右侧的圆形刷新按钮 → 弹「提示 / 你确定要进行免费刷新吗？」→ 点「确定」。实测剩余次数 3次→2次、商品整批换新、水晶未变。\n\n⚡ 安全设计：**只有弹窗正文明确写着「免费刷新」才会点确定**。免费次数用完时游戏会弹消耗水晶的确认框，那时绝不能点确定（见 ConfirmFree / ConfirmPaid）。本任务在界面上默认关闭。\n\n【页面滞留】进崩坏屋会直接落在**上次访问的子页**。上次是共鸣屋就直接可用；不是则靠 Nav03Resonance 补一步。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
-        "next": ["Daily_ClaimRewards"]
+        "next": [
+            "Presence_Resonance_Refresh",
+            "Presence_Resonance_Nav"
+        ]
+    },
+    "Presence_Resonance_Refresh": {
+        "doc": "「剩余次数」可见 = 已经在共鸣屋页 → 点它右侧的圆形刷新按钮 (1088,155)。\n\n用「剩余次数」当识别条件一举两得：既是页面判定，又是「可以刷新」的前提 —— 这行字只在有次数时出现。\nmax_hit:1；刷完不在这里判断结果，交给下面两个确认节点。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    870,
+                    128,
+                    210,
+                    36
+                ],
+                "expected": [
+                    "剩余次数"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {"target": [
+                    1088,
+                    155
+                ]}
+        },
+        "next": [
+            "Presence_Resonance_ConfirmFree",
+            "Presence_Resonance_ConfirmPaid",
+            "Presence_Resonance_Abort"
+        ],
+        "post_delay": 800,
+        "timeout": 3000,
+        "max_hit": 1
+    },
+    "Presence_Resonance_ConfirmFree": {
+        "doc": "⭐ 专属确认：**弹窗正文必须含「免费刷新」才点「确定」**。\n\n这是本任务唯一的消耗防线。剩余次数为 0 时游戏弹的是要花水晶的确认框，正文不含「免费刷新」→ 本节点不命中 → 落到 ConfirmPaid 去点「取消」。\n\n⚠️ 刻意**不接** Common_PopupGate / Common_NoticeConfirm —— 那些看到「确定」就点，对这里是致命的（中央确定的位置与普通提示框完全重合）。\n\n点的是写死的 (546,455)，不是识别框中心 —— 识别 ROI 罩的是正文，不是按钮。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    420,
+                    300,
+                    460,
+                    50
+                ],
+                "expected": [
+                    "免费刷新"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {"target": [
+                    546,
+                    455
+                ]}
+        },
+        "next": [
+            "Daily_ClaimRewards"
+        ],
+        "post_delay": 800,
+        "timeout": 3000
+    },
+    "Presence_Resonance_ConfirmPaid": {
+        "doc": "兜底：弹窗在，但正文不是「免费刷新」—— 说明这次刷新要花水晶。点「取消」退出，不刷新。\n\n免费次数用完时的**正常**路径，不是错误。点的是识别框中心（「取消」按钮本身）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    700,
+                    435,
+                    110,
+                    45
+                ],
+                "expected": [
+                    "取消"
+                ]
+            }
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": [
+            "Daily_ClaimRewards"
+        ],
+        "post_delay": 800,
+        "timeout": 3000
+    },
+    "Presence_Resonance_Abort": {
+        "doc": "放弃点：导航没走通或弹窗没出现时的收尾。宁可这一次不刷，也不要把整条日常炸掉（§5.9② 的「next 全失配 → 整条任务报错」）。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "Daily_ClaimRewards"
+        ]
+    },
+    "Presence_Resonance_Nav": {
+        "doc": "导航到共鸣屋。线性下降链，理由同 Summon_Nav。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "Presence_Resonance_Nav01Shop"
+        ]
+    },
+    "Presence_Resonance_Nav01Shop": {
+        "doc": "导航第 1 步：点顶部「商店」（顶部菜单从右往左第三个）。\n\n⚠️ ROI 右边界必须止于 1075：再宽就会把右邻的「社交」(box x 1080-1119) 一起框进来。\n实机测试时 ROI 开到 [940,20,180,110] 就同时识别出了两个，靠「商店」分数更高(1.0000 vs 0.9991)才没点错 —— 这种「靠分数赢」的写法不可靠，已收窄。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    935,
+                    20,
+                    140,
+                    110
+                ],
+                "expected": [
+                    "商店"
+                ]
+            }
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": [
+            "Presence_Resonance_Nav02Benghuai"
+        ],
+        "post_delay": 1200,
+        "timeout": 4000
+    },
+    "Presence_Resonance_Nav02Benghuai": {
+        "doc": "导航第 2 步：点店铺网格右上角的「崩坏屋」卡片。\n\n⚠️ 卡片标题与进店后左侧栏的标签同名，所以 ROI 必须锁死在**网格里那张卡片**的位置（x>900, y 265-315），别让它匹配到别侧。\n\n进店后可能直接落在上次的子页（滞留），所以先试 Refresh，不中再点左侧「共鸣屋」。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    905,
+                    265,
+                    220,
+                    48
+                ],
+                "expected": [
+                    "崩坏屋"
+                ]
+            }
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": [
+            "Presence_Resonance_Refresh",
+            "Presence_Resonance_Nav03Resonance",
+            "Presence_Resonance_Abort"
+        ],
+        "post_delay": 1200,
+        "timeout": 4000
+    },
+    "Presence_Resonance_Nav03Resonance": {
+        "doc": "导航第 3 步：点左侧栏的「共鸣屋」。只有上一步没落在共鸣屋时才走到这里。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    10,
+                    285,
+                    130,
+                    50
+                ],
+                "expected": [
+                    "共鸣屋"
+                ]
+            }
+        },
+        "action": {"type": "Click", "param": {}},
+        "next": [
+            "Presence_Resonance_Refresh",
+            "Presence_Resonance_Abort"
+        ],
+        "post_delay": 1200,
+        "timeout": 4000
     }
 }
