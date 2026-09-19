@@ -112,9 +112,7 @@
             "param": {}
         },
         "next": [
-            "[JumpBack]Common_TapToDismiss",
-            "[JumpBack]Common_DenyList",
-            "[JumpBack]Common_NoticeConfirm",
+            "[JumpBack]Common_PopupGate",
             "ClaimRewards_PhaseDone"
         ],
         "post_delay": 800,

@@ -264,6 +264,19 @@ src.crop((x0, y0, x1, y1)).save(r"D:\...\debug\tpl\name.png")
    就把它作为 `[JumpBack]` 子程序的终点（`next: []`）。
 3. **恒命中的节点（DirectHit）不要放进会被反复求值的 `next` 列表**
    ——要么加 `max_hit` 兜底，要么改成 OCR 门控，要么用 `[JumpBack]`。
+4. **多个共享节点要一起跑，就包进一个 OCR 门控**（本项目：`Common_PopupGate`）。
+   调用方只写一行 `[JumpBack]Common_PopupGate`，门控内部用 `[JumpBack]` 依次调用各处理器，
+   末尾放一个 `DirectHit + next: []` 的兜底终点（`Common_PopupNone`）来接住「本轮没有弹窗」。
+
+   三条容易写错的约束（详见 `common.json` 里 `Common_PopupGate` 的 doc）：
+
+   | 约束 | 写错的后果 |
+   | --- | --- |
+   | 门控识别**不能**是 `DirectHit`，必须是覆盖各处理器的 `Or` | 调用方每次重新求值都命中它 → 死循环 |
+   | 兜底终点**只能**由门控下降进入 | 别处下降进空 `next` → 终止整条任务 |
+   | 处理器的 `max_hit` 必须**大于**门控的 `max_hit` | `Or` 重新识别不看 `max_hit`：门控命中但处理器已耗尽 → 三个全失配 → 兜底返回 → 重入门控 → 死循环 |
+
+   门控自己的 `max_hit` 是唯一的循环刹车（弹窗点了关不掉时）。
 
 诊断手段：把 MaaFramework 日志目录打开（`tools/dev_run.py` 已经设好，
 日志落在 `debug/maafw.log`），搜

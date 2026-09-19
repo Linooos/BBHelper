@@ -6,8 +6,37 @@
         "next": []
     },
 
+    "Common_PopupGate": {
+        "doc": "⭐ 统一弹窗门控。所有弹窗处理都走这一个节点：调用方只需在 next 里写一行 `[JumpBack]Common_PopupGate`，不用再逐个列举处理器。\n\n处理顺序（同一个 next 列表内失配会顺延）：\n  1. Common_DenyList       —— 安全闸，先查有没有危险文案。**必须排第一**：在点任何东西之前先做安全检查。\n  2. Common_TapToDismiss   —— 关「点空白处关闭」型奖励弹窗。\n  3. Common_NoticeConfirm  —— 点中央「确定」。\n  4. Common_PopupNone      —— 兜底终点，返回调用方。\n\n═══ 为什么识别是 Or 而不是 DirectHit（❗ 关键）═══\n本节点**必须**由 OCR 门控（有弹窗才命中）。如果把门控写成 DirectHit，调用方的 `next` 每次从头重新求值都会再次命中它 → 死循环。\n详见 dev_loop.md §5.5 表格第一行，项目早期已经踩过一次。\n\n═══ 为什么需要 Common_PopupNone ═══\n门控命中后下降进 next，如果三个处理器全失配，`next` 候选全部失败会让**整条任务报错**（§5.9 ②）。所以末尾必须有一个恒命中的终点来接住。\n\n═══ 为什么门控自己也带 max_hit ═══\n万一某个弹窗处理器点了却关不掉（门控命中、处理器也命中、但弹窗还在），门控会反复重入直到 max_hit 耗尽。**这是唯一的循环刹车**，不要删。耗尽后门控不再命中，调用方顺延走自己的业务节点 —— 退化成「弹窗没关掉」，而不是无限转圈。\n\n═══ 处理器 max_hit 必须大于本节点的 max_hit ═══\n否则会出现「门控命中（Or 重新识别，不看 max_hit）但处理器已耗尽（不再命中）」→ 三个全失配 → 兜底返回 → 调用方重入门控 → 死循环。\n所以三个处理器的 max_hit 都设成 200 > 本节点的 100。\n\n═══ 以后加新弹窗处理器 ═══\n往本节点的 next 里加一行 `[JumpBack]新节点`（放在 Common_PopupNone 之前），再把新节点的识别加进上面的 any_of。调用方一处都不用改。\n\n═══ 购买类流程要排除「确定」 ═══\n中央 (640,483) 既可能是普通提示、也可能是消耗确认框。高危流程不要用本门控，或者 override 本节点的 next 摘掉 Common_NoticeConfirm。注意：只把 Common_NoticeConfirm 设成 enabled:false 是**不够**的 —— Or 仍会跑它的识别，门控照样命中。",
+        "recognition": {
+            "type": "Or",
+            "param": {
+                "any_of": [
+                    "Common_DenyList",
+                    "Common_TapToDismiss",
+                    "Common_NoticeConfirm"
+                ]
+            }
+        },
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "[JumpBack]Common_DenyList",
+            "[JumpBack]Common_TapToDismiss",
+            "[JumpBack]Common_NoticeConfirm",
+            "Common_PopupNone"
+        ],
+        "max_hit": 100
+    },
+
+    "Common_PopupNone": {
+        "doc": "门控的兜底终点：本轮没有弹窗需要处理。\n\n恒命中 + `next: []`。它由 Common_PopupGate **下降**进入，而门控本身是被 `[JumpBack]` 调用的，所以这里的空 next 含义是「子程序结束、返回调用方」而不是「终止整条任务」（§5.5）。\n\n⚠️ 绝不能把本节点作为普通 next 成员放进别的节点 —— 那样就是「下降」碰到空 next，会直接终止整条任务。它只属于 Common_PopupGate。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": []
+    },
+
     "Common_TapToDismiss": {
-        "doc": "关闭「点空白处关闭」型的奖励弹窗。实测有两种，都没有按钮、点任意位置关闭：使魔探险领取后的「获得奖励」，以及存在感里程碑领取后的「已领取以下奖励」（后者正文直接写着「（点击空白处关闭）」）。两者标题位置不同，用一个覆盖两者的纵向 ROI。点击点选在两个弹窗都空白的区域，避免误触下层页面控件。⚠️ 必须由调用方以 [JumpBack] 调用（本节点 next 为空，作为普通 next 成员「下降」到这里会终止整条任务）。",
+        "doc": "关闭「点空白处关闭」型的奖励弹窗。实测有两种，都没有按钮、点任意位置关闭：使魔探险领取后的「获得奖励」，以及存在感里程碑领取后的「已领取以下奖励」（后者正文直接写着「（点击空白处关闭）」）。两者标题位置不同，用一个覆盖两者的纵向 ROI。点击点选在两个弹窗都空白的区域，避免误触下层页面控件。\n\n⚠️ 由 Common_PopupGate 以 [JumpBack] 调用（本节点 next 为空，作为普通 next 成员「下降」到这里会终止整条任务）。\n⚠️ max_hit 设成 200 是为了大于门控的 100 —— 见 Common_PopupGate 的 doc，比门控小会死循环。",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -33,11 +62,11 @@
         "next": [],
         "post_delay": 600,
         "timeout": 1500,
-        "max_hit": 15
+        "max_hit": 200
     },
 
     "Common_DenyList": {
-        "doc": "安全闸：弹窗里出现消耗/破坏性文案就中止整条任务链。词表刻意保持很窄，只拦真正的危险操作，避免误伤正常流程。使用时**直接**放进父节点的 next（不要包一层 DirectHit，见 dev_loop.md「恒命中节点」）。",
+        "doc": "安全闸：弹窗里出现消耗/破坏性文案就中止整条任务链。词表刻意保持很窄，只拦真正的危险操作，避免误伤正常流程。\n\n⚠️ 由 Common_PopupGate 以 [JumpBack] 调用，且**排在第一位** —— 在点任何东西之前先做安全检查。不要把它挪到 Common_NoticeConfirm 后面。",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -62,7 +91,7 @@
     },
 
     "Common_NoticeConfirm": {
-        "doc": "中央「确定」按钮，用于关闭各种提示框（如使魔探险的「信息提示：体力已经达到上限」）。ROI 锁死在按钮本身，不覆盖上方文案区。⚠️ 该位置既可能是普通提示、也可能是消耗确认框，所以它在父节点 next 里的顺序必须排在 Common_DenyList 之后。max_hit 防止弹窗关不掉时无限循环。",
+        "doc": "中央「确定」按钮，用于关闭各种提示框（如使魔探险的「信息提示：体力已经达到上限」）。ROI 锁死在按钮本身，不覆盖上方文案区。\n\n⚠️ 该位置既可能是普通提示、也可能是消耗确认框。门控把 Common_DenyList 排在它前面就是为这个 —— 危险文案先被拦住，拦不住才会点到它。\n⚠️ max_hit 设成 200 是为了大于门控的 100 —— 见 Common_PopupGate 的 doc，比门控小会死循环。",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -78,6 +107,6 @@
         "action": {"type": "Click", "param": {}},
         "next": [],
         "timeout": 1500,
-        "max_hit": 20
+        "max_hit": 200
     }
 }

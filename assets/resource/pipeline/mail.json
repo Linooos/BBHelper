@@ -91,9 +91,7 @@
             "param": {}
         },
         "next": [
-            "[JumpBack]Common_TapToDismiss",
-            "[JumpBack]Common_DenyList",
-            "[JumpBack]Common_NoticeConfirm",
+            "[JumpBack]Common_PopupGate",
             "Mail_ClaimStamina",
             "Mail_ClaimAll",
             "Mail_PhaseDone"
@@ -181,8 +179,7 @@
             "param": {}
         },
         "next": [
-            "[JumpBack]Common_DenyList",
-            "[JumpBack]Common_NoticeConfirm",
+            "[JumpBack]Common_PopupGate",
             "Mail_Loop"
         ],
         "post_delay": 600,

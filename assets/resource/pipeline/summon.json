@@ -116,9 +116,7 @@
             "param": {}
         },
         "next": [
-            "[JumpBack]Common_TapToDismiss",
-            "[JumpBack]Common_DenyList",
-            "[JumpBack]Common_NoticeConfirm",
+            "[JumpBack]Common_PopupGate",
             "Summon_Claim",
             "Summon_Accept_Click",
             "Summon_Settle"
@@ -146,9 +144,7 @@
             "param": {}
         },
         "next": [
-            "[JumpBack]Common_TapToDismiss",
-            "[JumpBack]Common_DenyList",
-            "[JumpBack]Common_NoticeConfirm",
+            "[JumpBack]Common_PopupGate",
             "Summon_Loop"
         ],
         "post_delay": 800,
@@ -177,7 +173,7 @@
         },
         "next": [
             "Summon_Accept_AutoAssign",
-            "[JumpBack]Common_NoticeConfirm",
+            "[JumpBack]Common_PopupGate",
             "Summon_Loop"
         ],
         "post_delay": 900,
@@ -206,7 +202,7 @@
         },
         "next": [
             "Summon_Accept_Depart",
-            "[JumpBack]Common_TapToDismiss",
+            "[JumpBack]Common_PopupGate",
             "Summon_Loop"
         ],
         "post_delay": 900,
@@ -234,9 +230,7 @@
             "param": {}
         },
         "next": [
-            "[JumpBack]Common_TapToDismiss",
-            "[JumpBack]Common_DenyList",
-            "[JumpBack]Common_NoticeConfirm",
+            "[JumpBack]Common_PopupGate",
             "Summon_Loop"
         ],
         "post_delay": 900,
@@ -254,8 +248,7 @@
             "param": {}
         },
         "next": [
-            "[JumpBack]Common_DenyList",
-            "[JumpBack]Common_NoticeConfirm",
+            "[JumpBack]Common_PopupGate",
             "Summon_PhaseDone"
         ]
     },
