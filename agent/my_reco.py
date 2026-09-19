@@ -175,6 +175,19 @@ class ResonanceFreeLeft(CustomRecognition):
 
         hits = _ocr(context, argv.image, roi, ["剩余次数"], base_node)
         if not hits:
+            # 没有「剩余次数」标签有两种可能，必须分开报，否则排查时会被误导：
+            #   1. 不在共鸣屋页
+            #   2. 免费次数已用完 —— 实测游戏会把这一行**整个换掉**，
+            #      从「剩余次数 N次」变成「消耗N零时之种」（2026-09-19 实机确认）
+            spent = _ocr(context, argv.image, roi, ["零时之种"], base_node)
+            if spent:
+                return CustomRecognition.AnalyzeResult(
+                    box=None,
+                    detail={
+                        "free_left": 0,
+                        "error": "免费次数已用完（标签已变为「消耗N零时之种」）",
+                    },
+                )
             return CustomRecognition.AnalyzeResult(
                 box=None,
                 detail={"error": "未找到「剩余次数」（可能不在共鸣屋页）"},
