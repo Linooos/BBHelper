@@ -247,7 +247,7 @@
         ]
     },
     "Presence_Resonance_TokenGate": {
-        "doc": "付费刷新切点：只有 FreeGate 没命中（= 剩余次数为 0）时才会走到这里。\n\n由界面子选项「使用代币刷新」控制 enabled：\n    打开 → 用零时之种刷新\n    关闭 → 本节点失配 → 落到 Abort，**不刷新**（这是默认行为）\n\n恒命中（DirectHit）在这里是安全的：它只被 Presence_Resonance_Do 的 next 求值一次，不像 [JumpBack] 目标那样会被反复重入。",
+        "doc": "付费刷新切点：只有 FreeGate 没命中（= 免费次数为 0）时才会走到这里。\n\n由界面子选项「使用代币刷新」控制 enabled：\n    打开 → 用零时之种刷新\n    关闭 → 本节点失配 → 落到 Abort，**不刷新**（这是默认行为）\n\n✅ 两条路径都已实机验证（2026-09-19）：\n    enabled=false → Task → Do → Abort，没刷新\n    enabled=true  → Task → Nav → Do → TokenGate → ClickRefresh → ConfirmToken\n                    → 「确定」，实测零时之种 49 → 48，商品换新\n\n恒命中（DirectHit）在这里是安全的：它只被 Presence_Resonance_Do 的 next 求值一次，不像 [JumpBack] 目标那样会被反复重入。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
         "next": [
