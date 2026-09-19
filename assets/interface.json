@@ -72,10 +72,17 @@
     //  ⚠️ 发布产物由 tools/install.py 另行写入（那边 agent/ 与 interface.json
     //     平级，路径形态不同），不要指望这一块被直接带过去。
     // ════════════════════════════════════════════════════════════════
+    // vscode 里调试时用本机 venv 的 python，发布产物里用随包的 agent/main.py。
+    // "agent": {
+    //     "child_exec": "{PROJECT_DIR}/../.venv/Scripts/python.exe",
+    //     "child_args": [
+    //         "{PROJECT_DIR}/../agent/main.py"
+    //     ]
+    // },
     "agent": {
-        "child_exec": "{PROJECT_DIR}/../.venv/Scripts/python.exe",
+        "child_exec": "python",
         "child_args": [
-            "{PROJECT_DIR}/../agent/main.py"
+            "./agent/main.py"
         ]
     },
     "task": [
