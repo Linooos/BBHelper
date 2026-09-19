@@ -7,7 +7,7 @@
     },
 
     "App_Launch": {
-        "doc": "启动流程入口。① 先**试活**：已经在大厅就直接往下走（一次模板匹配，几乎零成本）；② 否则拉起游戏并走完启动序列。\n\n═══ 关于「模拟器是否打开」═══\n这条**在 pipeline 里做不到**，也不该在这儿做：模拟器没启动时 ADB 根本连不上，控制器初始化就失败了，任务压根跑不起来。所以这个判定天然由**启动器**（MFAAvalonia 选设备 / adb connect）承担。pipeline 只负责「游戏是否打开」和「在不在大厅」。\n\n═══ 实机观察到的启动序列（2026-09-19，强停后冷启动）═══\n    1. 标题画面     「…屏幕继续」→ 需要点一下\n    2. 「网络连接中…」  自消散的 loading，不用管\n    3. 大厅         左侧栏第一个图标出现\n分账号/分时段可能还有签到、公告等弹窗，由 App_CleanPopups 兜。",
+        "doc": "启动流程入口。① 先**试活**：已经在大厅就直接往下走（一次模板匹配，几乎零成本）；② 否则拉起游戏并走完启动序列。\n\n═══ 关于「模拟器是否打开」═══\n这条**在 pipeline 里做不到**，也不该在这儿做：模拟器没启动时 ADB 根本连不上，控制器初始化就失败了，任务压根跑不起来。所以这个判定天然由**启动器**（MFAAvalonia 选设备 / adb connect）承担。pipeline 只负责「游戏是否打开」和「在不在大厅」。\n\n═══ 启动超时与重启 ═══\n等大厅等太久（界面选项「启动超时」控制，默认 120 秒）就**强停游戏重新拉起一次**；\n第二次还是超时就放弃、硬着头皮往下走。见 App_BootRestart 的 doc。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
         "next": [
@@ -28,26 +28,82 @@
     },
 
     "App_BootCycle": {
-        "doc": "启动等待循环的**汇合点**。\n\n⚠️ 它必须是独立的一层、不能把 max_hit 挂在循环体自己身上：按 dev_loop §5.9①，计数循环要靠「每轮回到一个汇合点」让计数器重新求值（App_BootCount 才是计数器）。\n\nnext 的兜底 App_BootFail 保证它永不空手而归，所以恒命中在这里是安全的。",
+        "doc": "启动等待循环的**汇合点（第 1 次尝试）**。\n\nnext 三个成员从左到右：\n  1. `App_BootCount`   这一轮的计数 + 等待\n  2. `App_BootRestart` 计数耗尽 = 超时 → 强停游戏重启（max_hit 1，只重启一次）\n  3. `App_BootGiveUp`  重启额度用完 → 放弃\n\n⚠️ 为什么要有**两个汇合点**（BootCycle / BootCycle2）：\nmax_hit 是**整条任务**范围的计数器，重新启动游戏**不会**让它清零。\n如果超时重启后还回到同一个计数节点，它的 max_hit 早就耗尽了 —— 第二轮等于没有等待循环，会瞬间连续触发重启。所以每次尝试配一个**各自独立的计数节点**。\n\nnext 里的 App_BootGiveUp 保证它永不空手而归，恒命中在这里是安全的。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
         "next": [
             "App_BootCount",
-            "App_BootFail"
+            "App_BootRestart",
+            "App_BootGiveUp"
         ]
     },
 
     "App_BootCount": {
-        "doc": "计数器 + 节流：`max_hit: 30` × `post_delay: 2000` ≈ 最长等 60 秒。\n\n每轮顺序：先看是不是已经到大厅（是就直接往下走），不是才去点标题、然后回到汇合点等下一轮。\n\n⚠️ App_CheckLobby 必须排第一：如果让恒命中的节点挡在前面，检测要等计数耗尽才会被求值。",
+        "doc": "第 1 次尝试的计数器 + 节流。`max_hit` 由界面选项「启动超时」控制（秒数 ÷ 2，因为 post_delay 是 2000ms）。\n\n每轮顺序：先清启动类弹窗 → 看是不是已经到大厅 → 不是才去点标题 → 回汇合点等下一轮。\n\n⚠️ `[JumpBack]Startup_PopupGate` 必须放在循环体**里面**，不能只在进大厅之后清一次：\n游戏公告的面板几乎铺满屏幕（x≈60-1215），会**盖住左侧那个大厅图标**。\n弹窗不关掉，App_CheckLobby 永远匹配不上，循环只会一路空转到超时。\n\n⚠️ App_CheckLobby 的顺序：门控之后、TapTitle 之前。门控是 OCR 门控的（没弹窗就失配），不会挡住后面的候选。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
         "next": [
+            "[JumpBack]Startup_PopupGate",
             "App_CheckLobby",
             "App_TapTitle",
             "App_BootCycle"
         ],
         "post_delay": 2000,
-        "max_hit": 30
+        "max_hit": 60
+    },
+
+    "App_BootRestart": {
+        "doc": "⭐ 超时 → **强停游戏再重新拉起一次**。\n\n用内建的 `StopApp`，不需要写 Python。\n\n`max_hit: 1` 是刻意的：**只重启一次**。第二次还是超时就交给 App_BootGiveUp ——\n如果网络真的断了，重启多少次都没用，无限重试只会把模拟器拖垮、把日志刷爆。\n\n触发场景（2026-09-19 实测遇到）：游戏卡在「网络连接中…」一直连不上，\n启动循环空转到超时。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {
+            "type": "StopApp",
+            "param": {"package": "com.miHoYo.HSoDv2Original"}
+        },
+        "next": ["App_BootRelaunch"],
+        "post_delay": 2000,
+        "max_hit": 1
+    },
+
+    "App_BootRelaunch": {
+        "doc": "重启的第二段：把游戏拉起来，然后进第 2 次尝试的循环。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {
+            "type": "StartApp",
+            "param": {"package": "com.miHoYo.HSoDv2Original"}
+        },
+        "next": ["App_BootCycle2"],
+        "post_delay": 3000
+    },
+
+    "App_BootCycle2": {
+        "doc": "第 2 次尝试的汇合点。结构与 App_BootCycle 相同，只是**不再有重启分支**（重启额度已经用掉了）。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "App_BootCount2",
+            "App_BootGiveUp"
+        ]
+    },
+
+    "App_BootCount2": {
+        "doc": "第 2 次尝试的计数器。max_hit 与 App_BootCount 同源 —— 界面选项「启动超时」会同时覆盖这两个。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "[JumpBack]Startup_PopupGate",
+            "App_CheckLobby",
+            "App_TapTitle2",
+            "App_BootCycle2"
+        ],
+        "post_delay": 2000,
+        "max_hit": 60
+    },
+
+    "App_BootGiveUp": {
+        "doc": "两次尝试都没能进大厅（网络断了 / 卡在更新 / 模拟器异常）。\n\n**仍然往下走**，让后面的阶段自己失败 —— 日志里能看到后续哪个节点开始报「找不到」，\n比整条任务在启动阶段就中断更好定位是网络问题还是识别问题。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": ["Daily_Mail"]
     },
 
     "App_TapTitle": {
@@ -74,7 +130,33 @@
                 ]}
         },
         "next": ["App_BootCycle"],
-        "post_delay": 1500,
+        "timeout": 2000
+    },
+
+    "App_TapTitle2": {
+        "doc": "第 2 次尝试的标题点击。与 App_TapTitle 识别/动作完全相同，**只有 next 不同**（回 App_BootCycle2）。\n\n⚠️ 为什么必须复制一份而不能共用：2026-09-19 实机踩到 —— 共用时 next 写的是 App_BootCycle，\n第 2 次尝试里标题画面一出现，流程就被拽回**第 1 次尝试**的汇合点，而那边的\nApp_BootCount / App_BootRestart 早就耗尽，直接掉进 App_BootGiveUp。\n表现是「重启后明明已经进大厅了，脚本却放弃退出」—— 第 2 次只跑了 5 轮就被截断。\n\n归纳：**任何 next 指回「当前这一轮汇合点」的节点，都必须每轮一份**，\n不能跨轮共用（和 App_BootCount / App_BootCount2 同一个道理）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    480,
+                    645,
+                    320,
+                    50
+                ],
+                "expected": [
+                    "屏幕继续"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {"target": [
+                    640,
+                    400
+                ]}
+        },
+        "next": ["App_BootCycle2"],
         "timeout": 2000
     },
 
@@ -99,20 +181,14 @@
     },
 
     "App_CleanPopups": {
-        "doc": "进大厅后清一遍残留弹窗（签到 / 公告 / 活动 …）。交给统一门控，以后加新弹窗处理器不用改这里。\n\n⚠️ 目前门控只认三个已知弹窗（获得奖励 / 已领取以下奖励 / 确定）。**冷启动后可能出现签到、公告之类的新弹窗，实测当天因为签到已完成没有复现** —— 等复现时往 Common_PopupGate 的处理器列表里加。",
+        "doc": "进大厅后再清一遍弹窗，然后才交给日常。\n\n两个门控分工明确（用户 2026-09-19 的意见）：\n  Startup_PopupGate  启动类（公告 / 网络连接中 / 生日）—— 只在启动时出现\n  Common_PopupGate   运行期通用类（获得奖励 / 已领取以下奖励 / 确定）\n\n⚠️ 为什么进大厅后还要再跑一次 Startup 门控：公告有时候**比大厅晚一步**才弹出来。\n启动循环里那次可能刚好错过，这里补一道。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
         "next": [
+            "[JumpBack]Startup_PopupGate",
             "[JumpBack]Common_PopupGate",
             "Daily_Mail"
         ]
-    },
-
-    "App_BootFail": {
-        "doc": "等不到大厅（游戏起不来 / 卡在更新 / 网络连不上）。\n\n**仍然往下走**，让后面的阶段自己失败 —— 比整条任务在这里报错更好定位：日志里能看到到底是启动卡住了，还是后续某个识别出了问题。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
-        "next": ["Daily_Mail"]
     },
 
     "Daily_Mail": {

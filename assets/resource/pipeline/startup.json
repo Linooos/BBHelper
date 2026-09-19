@@ -1,0 +1,104 @@
+{
+    "Startup_PopupGate": {
+        "doc": "⭐ **启动流程专用**弹窗门控。\n\n═══ 为什么不复用 Common_PopupGate（用户 2026-09-19 的设计意见）═══\n这些弹窗**只在启动时出现**。混进通用门控的代价是：日常流程里每一次「查一下有没有弹窗」都要多跑这几个识别 —— 既是性能开销，也扩大了误判面（公告页签上的文字、loading 文案，在别的页面也可能误匹配）。分开之后各管各的。\n\n处理顺序（同一个 next 列表内失配会顺延）：\n  1. Startup_NoticeClose      游戏公告（每日首次登录），点右上角关闭\n  2. Startup_ConnectingWait   「网络连接中…」自消散 loading，只等不点\n  3. Startup_BirthdayClose    角色生日弹窗（占位，未实现）\n  4. Startup_PopupNone        兜底终点，返回调用方\n\n═══ 结构与 Common_PopupGate 完全同构 ═══\n识别是 Or（不能是 DirectHit，否则调用方反复重入会死循环）、末尾有恒命中兜底、\n自己的 max_hit 是循环刹车、处理器的 max_hit 必须大于门控的。\n详见 common.json 里 Common_PopupGate 的 doc，这里不重复。\n\n⚠️ 加新处理器时，除了往 next 里加一行 `[JumpBack]新节点`，**还要把新节点的识别\n加进上面的 any_of** —— 门控靠 any_of 判断「有没有弹窗」，漏加就永远不命中。",
+        "recognition": {
+            "type": "Or",
+            "param": {
+                "any_of": [
+                    "Startup_NoticeClose"
+                ]
+            }
+        },
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [
+            "[JumpBack]Startup_NoticeClose",
+            "[JumpBack]Startup_BirthdayClose",
+            "Startup_PopupNone"
+        ],
+        "max_hit": 100
+    },
+
+    "Startup_PopupNone": {
+        "doc": "门控的兜底终点：本轮没有启动类弹窗要处理。\n\n恒命中 + `next: []`，由门控**下降**进入，而门控是被 `[JumpBack]` 调用的，所以这里的空 next 含义是「子程序结束、返回调用方」。\n\n⚠️ 绝不能把它当普通 next 成员放进别的节点 —— 那样会终止整条任务。只属于 Startup_PopupGate。",
+        "recognition": {"type": "DirectHit", "param": {}},
+        "action": {"type": "DoNothing", "param": {}},
+        "next": []
+    },
+
+    "Startup_NoticeClose": {
+        "doc": "游戏公告（每日第一次登录弹出）。面板几乎铺满屏幕（x≈60-1215, y≈35-685），\n顶部三个页签：活动公告 / 祈愿公告 / 系统公告。\n\n判据用这三个页签的文案，不用面板标题 —— 页签文字更长更稳定。\n关闭按钮是面板右上角的圆形 X，实测位置 ≈ (1170, 78)。\n\n⚠️ 注意别点到它左边那两个图标（≈950 和 ≈1035，是刷新/订阅之类的功能键）。\nROI 只罩页签那一行，点击点写死，两者都不越界。\n\n⚠️ TODO(待验证)：关闭按钮坐标是从用户提供的截图量出来的，**没有实机点过** —— \n写这个节点时当天的公告已经弹过了，force-stop 重启也没能复现。\n下次复现时重点确认 (1170,78) 是否正好在 X 上。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    80,
+                    58,
+                    740,
+                    50
+                ],
+                "expected": [
+                    "活动公告",
+                    "祈愿公告",
+                    "系统公告"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {"target": [
+                    1170,
+                    78
+                ]}
+        },
+        "next": [],
+        "post_delay": 800,
+        "timeout": 2000,
+        "max_hit": 200
+    },
+
+    "Startup_ConnectingWait": {
+        "doc": "「网络连接中… 正在努力连接，请确认网络已开启哦」—— 自消散的 loading，**没有按钮可点**。\n\n═══ ⚠️ 本节点**刻意没有接进门控**（enabled: false），原因值得记下来 ═══\n它是「等待」不是「关闭」，两者在门控里的下场完全不同：\n\n门控处理一个**关得掉**的弹窗时，处理完弹窗就没了，下一轮门控自然失配、退出。\n而 loading 关不掉，处理器会一直命中 → 门控自旋（命中子程序 → 返回 → 从头求值 → 又命中），\n于是：\n  1. **套出了一个内层计时器**：自旋期间外层的 App_BootCount 计数器根本不推进，\n     用户设的「启动超时 120 秒」实际会变成 270 秒 —— 设置项名不副实。\n  2. **把门控的 max_hit 额度吃光**：这段自旋会把门控的 100 次额度用掉，\n     之后真弹出游戏公告时，门控已经失效，关不掉了。\n\n═══ 正确做法 ═══\n**等待由启动循环自己的节奏承担**：App_BootCount 每轮 post_delay 2 秒并重查一次大厅，\nloading 期间 App_CheckLobby 自然失配、循环继续等 —— 本来就是这个行为，不需要额外节点。\n\n═══ 如果将来确实想要「日志里能看出是在等网络」═══\n不要接进门控，而是给每轮尝试各配一个**平级**的等待节点（参照 App_BootCount / App_BootCount2\n的做法），next 指回它自己那一轮的汇合点。识别参数照抄下面即可。\n\n保留本节点是为了不丢掉这段判断的结论；它现在恒失配，不会影响流程。",
+        "enabled": false,
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    400,
+                    295,
+                    480,
+                    110
+                ],
+                "expected": [
+                    "网络连接中"
+                ]
+            }
+        },
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [],
+        "post_delay": 1500,
+        "timeout": 2000,
+        "max_hit": 200
+    },
+
+    "Startup_BirthdayClose": {
+        "doc": "TODO(占位)：**角色生日弹窗**。用户提到存在，但手头没有截图，所以识别参数和点击目标都是空的。\n\n═══ 现在为什么是安全的 ═══\n`enabled: false` → 本节点一定失配，门控会直接顺延到兜底。action 也刻意写成 DoNothing\n而不是 Click —— 万一有人只把 enabled 改回 true 却忘了填坐标，也不会点到 (0,0) 去。\n\n═══ 怎么补齐（三步都要做）═══\n  1. 复现后截图，量出标题/关闭按钮的 roi、文案、按钮坐标\n  2. 填好本节点的 roi / expected / action，把 enabled 改回 true\n  3. **把本节点加进 Startup_PopupGate 的 any_of** —— 门控靠 any_of 判断「有没有弹窗」，\n     漏了这一步本节点永远不会被触发\n\n═══ 没实现之前的后果 ═══\n生日弹窗挡着时，门控认不出来（它不在 any_of 里）→ 启动循环等不到大厅 → 走\nApp_BootFail 继续往下，后续识别会因为这个弹窗而失败。属于「知道为什么」的失败。",
+        "enabled": false,
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    0,
+                    0,
+                    1,
+                    1
+                ],
+                "expected": [
+                    "__待补充__"
+                ]
+            }
+        },
+        "action": {"type": "DoNothing", "param": {}},
+        "next": [],
+        "post_delay": 800
+    }
+}

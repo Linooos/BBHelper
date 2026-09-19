@@ -74,6 +74,7 @@
             "entry": "Daily_CleanUp",
             // 顺序 = 管线里的阶段顺序，见 entry.json 的 Daily_CleanUp。
             "option": [
+                "启动超时",
                 "邮件领取",
                 "使魔探险",
                 "使魔的爱",
@@ -111,6 +112,61 @@
         }
     ],
     "option": {
+        // ────────────── 启动 ──────────────
+        // max_hit = 秒数 ÷ 2：启动循环里 post_delay 是 2000ms。
+        // 两次尝试各有一个独立的计数节点（理由见 entry.json 的 App_BootCycle doc：
+        // max_hit 是整条任务范围的，重启游戏不会清零），所以这里要一起覆盖。
+        "启动超时": {
+            "type": "select",
+            "description": "**等待进入大厅的时限**（两次尝试各算一次）。\n\n超时会**强停游戏并重新拉起**再等一轮（只重启一次，避免无限重试拖垮模拟器）；第二次还是超时就放弃、硬着头皮继续往下走。\n\n网络差、或游戏启动慢的时候调大。",
+            "default_case": "120秒",
+            "cases": [
+                {
+                    "name": "60秒",
+                    "pipeline_override": {
+                        "App_BootCount": {
+                            "max_hit": 30
+                        },
+                        "App_BootCount2": {
+                            "max_hit": 30
+                        }
+                    }
+                },
+                {
+                    "name": "120秒",
+                    "pipeline_override": {
+                        "App_BootCount": {
+                            "max_hit": 60
+                        },
+                        "App_BootCount2": {
+                            "max_hit": 60
+                        }
+                    }
+                },
+                {
+                    "name": "180秒",
+                    "pipeline_override": {
+                        "App_BootCount": {
+                            "max_hit": 90
+                        },
+                        "App_BootCount2": {
+                            "max_hit": 90
+                        }
+                    }
+                },
+                {
+                    "name": "300秒",
+                    "pipeline_override": {
+                        "App_BootCount": {
+                            "max_hit": 150
+                        },
+                        "App_BootCount2": {
+                            "max_hit": 150
+                        }
+                    }
+                }
+            ]
+        },
         // ────────────── 邮件 ──────────────
         "邮件领取": {
             "type": "switch",
