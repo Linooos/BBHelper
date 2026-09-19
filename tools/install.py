@@ -119,8 +119,9 @@ def install_resource():
     interface["version"] = version
 
     # 开发期 interface.json 在 assets/ 下、agent/ 在仓库根，所以 child_args 写的是
-    # ../agent/main.py；发布布局把 interface.json 和 agent/ 平铺到 install/ 根，
-    # 调用方又以 interface.json 所在目录为 CWD，因此这里必须改回 ./agent/main.py。
+    # ../agent/main.py、child_exec 写的是 ../.venv/Scripts/python.exe；
+    # 发布布局把 interface.json 和 agent/ 平铺到 install/ 根，调用方又以
+    # interface.json 所在目录为 CWD，因此这里必须改回发布期写法。
     agent = interface.get("agent")
     if isinstance(agent, dict):
         args = agent.get("child_args")
@@ -129,6 +130,9 @@ def install_resource():
                 a.replace("../agent/", "./agent/") if isinstance(a, str) else a
                 for a in args
             ]
+        # 开发期指向项目 venv 的解释器；发布期交回 "python"
+        if isinstance(agent.get("child_exec"), str) and ".venv" in agent["child_exec"]:
+            agent["child_exec"] = "python"
 
     with open(install_path / "interface.json", "w", encoding="utf-8") as f:
         jsonc.dump(interface, f, ensure_ascii=False, indent=4)

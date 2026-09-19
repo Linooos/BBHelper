@@ -150,23 +150,31 @@ uv pip install Pillow
 
 配置时踩了两个坑：
 
-**坑一：`child_exec: "python"` 在本机不存在**
+**坑一：`child_exec` 不能用裸 `python`**
 
 本机没有系统 Python；uv 管的解释器也不在 PATH 上。而
 `C:\Users\...\AppData\Local\Microsoft\WindowsApps\python.exe` 只是个
-**Microsoft Store 转接存根**（`AppInstallerPythonRedirector.exe`），
-所以报的是「Python was not found」。
+**Microsoft Store 转接存根**（`AppInstallerPythonRedirector.exe`）：
 
-修法：**不改 interface.json**，改为在 `.vscode/settings.json` 给集成终端补 PATH
-（插件是通过一条 PowerShell 终端任务启动 Agent 的）：
+- 没有 venv 时 → 报「Python was not found」；
+- 命中了别的解释器时 → 报 `ModuleNotFoundError: No module named 'maa'`
+  （**同一个症状的两种表现，根因都是解释器不对**）。
+
+**修法：`child_exec` 直接写死项目 venv 的解释器**，路径同样相对 interface.json 所在目录：
 
 ```jsonc
-"terminal.integrated.env.windows": {
-    "PATH": "${env:PATH};${workspaceFolder}\\.venv\\Scripts"
+"agent": {
+    "child_exec": "../.venv/Scripts/python.exe",
+    "child_args": ["../agent/main.py"]
 }
 ```
 
-改完**必须重启 VS Code 或重开集成终端**才生效。
+发布时由 `tools/install.py` 改回 `"python"`（见下）。
+
+> ❌ 试过但**不要**依赖的做法：在 `.vscode/settings.json` 里用
+> `terminal.integrated.env.windows` 给终端补 PATH。实测不可靠 ——
+> 它需要 VS Code 重载，而且终端任务未必按预期继承。`.vscode/settings.json`
+> 里那条设置现在只作为「在 VS Code 终端里手敲 python 也能用」的便利项保留。
 
 **坑二：开发布局与发布布局不一致，`./agent/main.py` 落错地方** ⚠️
 

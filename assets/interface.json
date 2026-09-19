@@ -42,10 +42,13 @@
     // ⚠️ 发布布局不同：tools/install.py 把 assets/interface.json 和 agent/ 平铺到 install/ 根，
     //    那时必须改回 ./agent/main.py。**install.py 已包含这个改写步骤**，不要手动改。
     //
-    // child_exec 用 "python"：发布产物会附带便携 Python；开发期由
-    // .vscode/settings.json 的 terminal.integrated.env.windows 把 .venv\Scripts 加进终端 PATH。
+    // ⚠️ child_exec 写死项目 venv 的解释器，不要用裸 "python"：
+    //    本机没有系统 Python，而 PATH 里的 ...\WindowsApps\python.exe 只是个
+    //    Microsoft Store 转接存根（AppInstallerPythonRedirector.exe），命中了也没有 maa 模块。
+    //    路径同样相对 interface.json 所在目录（assets/），所以是 ../.venv/...。
+    //    发布时必须由 install.py 改写回 "python"（产物附带便携解释器或依赖用户环境）。
     "agent": {
-        "child_exec": "python",
+        "child_exec": "../.venv/Scripts/python.exe",
         "child_args": [
             "../agent/main.py"
         ]
