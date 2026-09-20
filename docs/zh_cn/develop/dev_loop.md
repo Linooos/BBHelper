@@ -321,6 +321,22 @@ embeddable python 的 `._pth` 一旦存在，就**接管 `sys.path` 的初始化
 不补的话 `import my_action` 直接 `ModuleNotFoundError`（2026-09-20 实测踩到，
 而且是**实测那个包里**踩到的 —— 不跑一次根本发现不了）。
 
+#### 打包命令
+
+```bash
+# 前置：把 MaaFramework 解压到 deps/（需要 deps/bin、deps/share/MaaAgentBinary）
+python tools/install.py v0.1.0 win x86_64     # <版本> <目标os> <目标arch>
+```
+
+三个参数缺一不可（少了会打印 usage 并退出）。第 2、3 个是**目标平台**，
+产物落在 `install/`。首次跑会联网拉绿色 python 和依赖，之后走缓存。
+
+单独重装内嵌 python：
+
+```bash
+python tools/setup_embed_python.py win x86_64 --force
+```
+
 #### 打包后怎么验
 
 包里那个 python 在原平台上独立可跑，不用开 MFAAvalonia：
