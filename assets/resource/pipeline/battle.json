@@ -145,7 +145,7 @@
         "timeout": 3000
     },
     "Battle_PickStage": {
-        "doc": "刷第二次以上时，回到关卡列表重新点开关卡。\n\n═══ ⚠️ 为什么这里写死着喵王の福利 ═══\n本节点在**共享的**通用通关脚本里 —— 那条链不认识具体关卡，\n所以「重新点开关卡」要用的名称和位置只能**从外面灌进来**：\n    界面「预设关卡」选项 → pipeline_override → 本节点的\n    recognition.param.expected（名称）和 action.param.target（位置）\n\n首次进关卡走的是**另一条路**（各关卡自己的入场链，见 stamina.json 的\nStamina_MiaoWang*），那边的参数写在链里，和这里无关。\n\n⚠️ 加新预设关卡时**两个地方都要给参数**：\n    入场链里那份（首次进关用）\n    界面 case 里这份（重刷用）\n少了后者，第一次进对、第二次会去点喵王 ✗。\n\n═══ 几何 ═══\n标题「喵王の福利」≈(640,225)，卡片本体 ≈(640,305) —— 标题在卡片上方，\n所以识别框和点击点是两个坐标。点击点用**点**而不是 rect，更确定。\n\n═══ ✅ 2026-09-20 实机验证（刷 2 次）═══\n    Count(第1轮) → Battle_PickStage ✓\n    Count(第2轮) → Battle_PickStage ✓\n    → Battle_ClearStage_Finish → Stamina_PhaseDone     status = succeeded\n识别：box=[543,204,154,36] score=0.9998 text='喵王の福利'",
+        "doc": "刷第二次以上时，回到关卡列表重新点开关卡。\n\n═══ ⚠️ 为什么这里写死着喵王の福利 ═══\n本节点在**共享的**通用通关脚本里 —— 那条链不认识具体关卡，\n所以「重新点开关卡」要用的名称和位置只能**从外面灌进来**：\n    界面「预设关卡」选项 → pipeline_override → 本节点的\n    recognition.param.expected（名称）和 action.param.target（位置）\n\n首次进关卡走的是**另一条路**（各关卡自己的入场链，见 stamina.json 的\nStamina_MiaoWang*），那边的参数写在链里，和这里无关。\n\n⚠️ 加新预设关卡时**两个地方都要给参数**：\n    入场链里那份（首次进关用）\n    界面 case 里这份（重刷用）\n少了后者，第一次进对、第二次会去点喵王 ✗。\n\n═══ 几何 ═══\n标题「喵王の福利」≈(640,225)，卡片本体 ≈(640,305) —— 标题在卡片上方，\n所以识别框和点击点是两个坐标。点击点用**点**而不是 rect，更确定。\n\n═══ ⭐ 2026-09-20：action 里的写死 target 已移除 ═══\n原来 action.param.target 写死 [640,305]。移掉它，改由**调用方按需灌**：\n  · 界面「预设关卡」那条 case 仍然显式给 target = [640,305] —— **行为完全不变**\n  · 「关尾无再次挑战」那条走 target_offset（见下）—— 不给 target\n\n为什么不给 target 时点识别框中心会点错：识别框是**标题**，而要点的是**卡片本体**，\n两者 y 差约 80px。\n\n═══ ⭐ target_offset 的锚点（schema 原文）═══\ntarget 默认 `true` = 「本节点刚刚识别到的位置（即自身）」= 识别框那**一个矩形**；\ntarget_offset「在 target 的基础上额外移动，**四个值分别相加**」。\n所以偏移是加在**框的左上角**上的（矩形算术，不是框中心）。\n\n据此校正：喵王标题框实测 [543,204,154,36]，加 [20,83,0,0] → 矩形\n[563,287,154,36] → 点击点**正好 (640,305)** ✓ 与原来写死的点完全一致。\n\n好处：这个偏移是**标题→卡片**的固定关系，而卡片布局是统一的 ⟹\n**换任何关卡都成立**，于是「关尾无再次挑战」只要给关卡名就能自动定位点击点，\n不需要用户报坐标。\n\n═══ ✅ 2026-09-20 实机验证（刷 2 次）═══\n    Count(第1轮) → Battle_PickStage ✓\n    Count(第2轮) → Battle_PickStage ✓\n    → Battle_ClearStage_Finish → Stamina_PhaseDone     status = succeeded\n识别：box=[543,204,154,36] score=0.9998 text='喵王の福利'",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -161,13 +161,7 @@
             }
         },
         "action": {
-            "type": "Click",
-            "param": {
-                "target": [
-                    640,
-                    305
-                ]
-            }
+            "type": "Click"
         },
         "next": [
             "Battle_DetailTicket",
