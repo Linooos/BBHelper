@@ -643,18 +643,18 @@
         "next": []
     },
     "Battle_RushEntry": {
-        "doc": "⭐ **抢进图**（2026-09-20 用户提出）：在关卡详情页**连点两个位置**直接进关，\n不再走「选择助战好友 → 备用装备 → 开战 → 等 HP」那四次识别。\n\n═══ 为什么能省 ═══\n实测在详情页反复按这两个位置就会一路进关：\n    (519,243)   ← rel (0.40546875, 0.3375)\n    (780,641)   ← rel (0.609375,  0.8902777...)\n坐标是用户按**屏幕比例**给的，换算到 1280×720 得来。\n\n═══ 本节点只负责「起动」 ═══\n判据是详情页独有的「选择助战好友」—— 命中才进循环，所以在别的页面不会乱按。\n循环体在 Battle_RushLoop。\n\n⚠️ 兜底：循环次数用尽仍没进图，就退回**老的** Battle_OpenHelperList 那条路\n（四次识别虽然慢，但稳）。不能没有兜底 —— 否则循环一失败整条任务报错（§5.9②）。",
+        "doc": "⭐ **抢进图 · 起点**（2026-09-21 用户第二次改版）。\n\n在关卡详情页连点两个位置直接进关，不走「选择助战好友 → 备用装备 → 开战 → 等 HP」。\n    (519,243)   ← 用户给的 rel (0.40546875, 0.3375)\n    (780,641)   ← rel (0.609375, 0.8902777…)\n\n═══ 判据为什么是「消耗体力」而不是「选择助战好友」═══\n上一版用「选择助战好友」判详情页，用户实测**不可靠**。\n「消耗体力」是详情页独有的、普通字体、实测 score 0.9998 —— 稳。\n\n⚠️ 它只负责「确认人在详情页，别在别处乱点」，**进图判定交给 Battle_RushTopGone**。",
         "recognition": {
             "type": "OCR",
             "param": {
                 "roi": [
-                    640,
-                    628,
-                    240,
-                    52
+                    600,
+                    505,
+                    180,
+                    60
                 ],
                 "expected": [
-                    "选择助战好友"
+                    "消耗体力"
                 ]
             }
         },
@@ -668,31 +668,59 @@
             }
         },
         "next": [
-            "Battle_RushLoop",
+            "[JumpBack]Common_NetWait",
+            "Battle_RushTap2",
             "Battle_OpenHelperList"
         ],
-        "post_delay": 300,
+        "post_delay": 0,
         "timeout": 2000
     },
-    "Battle_RushLoop": {
-        "doc": "抢进图的循环汇合点。每轮：先看「选择助战好友」还在不在，不在就是进图了，跳出开打；\n还在就继续按。\n\n`max_hit: 20` 是刹车 —— 按了 20 轮还没进去说明这条路走不通，\n让调用方顺延到 Battle_OpenHelperList 走老路。\n\n每轮 post_delay 只有 200ms：这一段就是要快。",
+    "Battle_TopHome": {
+        "doc": "顶部导航「首页」图标的**识别用节点**，不单独跑，只给 Battle_RushTopGone 当 Or 的成员。\n\n⚠️ 不挂 Common_NetWait：它只做识别、不点击，没有别的动作。",
         "recognition": {
-            "type": "DirectHit",
-            "param": {}
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    600,
+                    50,
+                    120,
+                    60
+                ],
+                "expected": [
+                    "首页"
+                ]
+            }
         },
         "action": {
             "type": "DoNothing",
             "param": {}
         },
-        "next": [
-            "Battle_ArrowGone",
-            "Battle_RushTap2"
-        ],
-        "post_delay": 200,
-        "max_hit": 20
+        "next": []
+    },
+    "Battle_TopOther": {
+        "doc": "顶部导航「其他」图标的识别用节点（同上，只给 Or 用）。\n\n为什么挑这两个：它们在**关卡详情页一定在**，而**进图之后顶栏会变**，两个都认不到。\n左右两个角各取一个，是为了不容易同时被同一个遮挡物干掉。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    1160,
+                    50,
+                    110,
+                    60
+                ],
+                "expected": [
+                    "其他"
+                ]
+            }
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": []
     },
     "Battle_RushTap2": {
-        "doc": "抢进图：按第二个位置 (780,641)。",
+        "doc": "抢进图：按第二个位置 (780,641)。用户要求**一轮之内中间无延迟**，所以 post_delay 为 0。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -707,12 +735,71 @@
             }
         },
         "next": [
+            "[JumpBack]Common_NetWait",
+            "Battle_RushGate"
+        ],
+        "post_delay": 0
+    },
+    "Battle_RushGate": {
+        "doc": "一轮的汇合点：先看**进图了没**，没进就再来一轮。\n\n候选顺序：\n  1. Battle_RushTopGone  顶部「首页」「其他」都认不到了 ⟹ 进图了 → 开打\n  2. Battle_RushAgain    还认得到 ⟹ 再点一轮\n  3. Battle_OpenHelperList  三轮都没进去 ⟹ 退回老路（慢但稳）",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Battle_RushTopGone",
+            "Battle_RushAgain",
+            "Battle_OpenHelperList"
+        ],
+        "post_delay": 0,
+        "max_hit": 6
+    },
+    "Battle_RushTopGone": {
+        "doc": "⭐ **进图判定**：顶部导航的「首页」和「其他」**都认不到**了。\n\n═══ 为什么换成这个（用户 2026-09-21 的意见）═══\n上一版用 `inverse` 认「选择助战好友」，用户实测不可靠。\n这两个图标在关卡详情页一定在，而**进图后顶栏会变**、两个都认不到 —— 信号更干净。\n左右各取一个是为了不容易被同一个遮挡物同时干掉。\n\n⚠️ `inverse` 的语义是「识别到了当没识别到」⟹ 这里配 `Or{首页, 其他}`，\n含义正好是 **NOT(首页 or 其他) = 两个都没有** ✓ 不是「缺一个就算」。\n\n⚠️ inverse 节点的 Click 会失效（没识别到东西），所以本节点只能 DoNothing。\n\n命中即接 Battle_StickDown：立刻「向右 + 按住攻击」，不等 HP 图标。",
+        "inverse": true,
+        "recognition": {
+            "type": "Or",
+            "param": {
+                "any_of": [
+                    "Battle_TopHome",
+                    "Battle_TopOther"
+                ]
+            }
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Battle_StickDown"
+        ],
+        "post_delay": 0,
+        "timeout": 1500
+    },
+    "Battle_RushAgain": {
+        "doc": "一轮没进去：回起点再来一轮。\n\n`max_hit: 3` 是用户定的 —— **一轮 = 两个位置各点一次**，最多三轮。\n三轮还进不去 ⟹ 本节点失配 ⟹ Battle_RushGate 顺延到 Battle_OpenHelperList 走老路。\n\n⚠️ max_hit 是整条任务范围累加的，不是每轮重置 —— 同一次运行里后面的轮次\n用不了这个额度。这是 MaaFramework 的既定语义，不是 bug。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
             "Battle_RushTap1"
         ],
-        "post_delay": 250
+        "post_delay": 0,
+        "max_hit": 3
     },
     "Battle_RushTap1": {
-        "doc": "抢进图：按第一个位置 (519,243)，然后回到循环汇合点重新判定。",
+        "doc": "抢进图：按第一个位置 (519,243)，接回 Tap2 组成一轮。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -727,35 +814,9 @@
             }
         },
         "next": [
-            "Battle_RushLoop"
+            "[JumpBack]Common_NetWait",
+            "Battle_RushTap2"
         ],
-        "post_delay": 250
-    },
-    "Battle_ArrowGone": {
-        "doc": "**进图判定**：`inverse` 反转 OCR —— 「选择助战好友」**不在**了就算进图。\n\n═══ 为什么不用左上角箭头 ═══\n用户想看的是「左上角返回箭头消失」，但那个箭头是**纯图形、OCR 读不到**。\n详情页底部那行「选择助战好友」是**文字**，而且和箭头同生共死（都是详情页专属）\n—— 用它做判据效果一样，还能被 OCR 稳定读到。\n\n═══ ⚠️ inverse 的坑（schema 原文）═══\n「由此识别出的节点，Click 等动作的点击自身将失效（因为实际并没有识别到东西）」\n所以本节点只能是 DoNothing，不能让它点自己。要跳转靠 next。\n\n═══ ⚠️ 只能在详情页进这个节点 ═══\ninverse 意味着**任何**没有这行字的页面都会命中，包括关卡列表。\n它只能由 Battle_RushLoop 到达，而 RushLoop 只能由 Battle_RushEntry（详情页判据）\n到达 —— 这个前提不能破。别把它挂到别处去。\n\n命中即接 Battle_StickDown：立刻「向右 + 按住攻击」，不等 HP 图标。",
-        "inverse": true,
-        "recognition": {
-            "type": "OCR",
-            "param": {
-                "roi": [
-                    640,
-                    628,
-                    240,
-                    52
-                ],
-                "expected": [
-                    "选择助战好友"
-                ]
-            }
-        },
-        "action": {
-            "type": "DoNothing",
-            "param": {}
-        },
-        "next": [
-            "Battle_StickDown"
-        ],
-        "post_delay": 100,
-        "timeout": 1500
+        "post_delay": 0
     }
 }
