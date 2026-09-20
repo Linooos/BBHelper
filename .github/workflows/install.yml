@@ -1,11 +1,31 @@
 name: install
 
+# ════════════════════════════════════════════════════════════════════════
+# ⚠️⚠️ 这三个版本号是**一组**，必须一起改，否则会静默出错：
+#
+#     MAAFW_VERSION        MaaFramework 的 release tag
+#     MFAA_VERSION         MFAAvalonia 的 release tag（**另一套编号**，别搞混）
+#     agent/requirements.txt 里的 maafw== 钉版本
+#
+# 为什么 MAAFW_VERSION 是硬耦合的：下面有一句 `rm -rf MFA/runtimes` ——
+# MFAAvalonia 自带的框架会被删掉，换成这个 MaaFramework release 里的
+# `deps/bin`。所以**真正决定 Agent 协议版本的是 MAAFW_VERSION**，
+# 而 agent 侧那个 python 装的 maafw 必须与它一致。
+# 对不上时 AgentServer 直接拒连、不弹提示，只在 agent 的 stdout 里留一行
+# `Protocol version mismatch`（详见 docs/zh_cn/develop/dev_loop.md §4.5）。
+#
+# 怎么确定新版本：升级后跑一次日常，翻包里的 logs 搜 Protocol version mismatch，
+# 它 client 那一半印的就是新框架的版本号 —— 那个值要写回 requirements.txt。
+#
+# 当前这一组是 2026-09-20 定下的、在 C:\Users\Stainless_Kettle\Desktop\1
+# 那份包上实测跑通过的组合（那份包的 MaaFramework.dll 内嵌 v5.13.1，
+# MFAAvalonia.Core 是 2.14.0）。
+#
+# 想临时试 latest：把对应的那个设回空字符串即可。
+# ════════════════════════════════════════════════════════════════════════
 env:
-  # 版本控制：
-  # - 设置 VERSION 为空字符串时，下载 latest 版本
-  # - 设置 VERSION 为具体版本号时（如 v1.2.3），下载指定版本
-  MAAFW_VERSION: ""
-  MFAA_VERSION: ""
+  MAAFW_VERSION: "v5.13.1"
+  MFAA_VERSION: "v2.14.0"
 
 on:
   push:

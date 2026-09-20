@@ -335,21 +335,46 @@ cd install
 交叉安装跑不动解释器，所以只能靠 `install/python/.bbhelper-python` 这个标记文件
 判断要不要重装 —— 里面记着「目标平台 + Python 版本 + maafw 版本」。
 
-#### 🔴 还没解决的：CI 拉的是 **latest**
+#### 三个版本号是**一组**，必须一起改
 
-`.github/workflows/install.yml` 顶部：
+`.github/workflows/install.yml` 顶部的 `env`:
 
 ```yaml
-MAAFW_VERSION: ""
-MFAA_VERSION: ""
+MAAFW_VERSION: "v5.13.1"    # MaaFramework release tag
+MFAA_VERSION: "v2.14.0"     # MFAAvalonia release tag（另一套编号！）
 ```
 
-**空 = 下载 latest**。而 `agent/requirements.txt` 钉的是死版本 ⟹
-上游一发新版本，这两边就悄悄错开，CI 出的包全部 `Protocol version mismatch`。
+外加 `agent/requirements.txt` 的 `maafw==5.13.1` —— 三个一起动。
 
-正确做法是把这两个也钉死，和 `requirements.txt` 一起改。
-另外那几个 workflow 还是模板原文（`MaaXXX` 的产物名、`SweetSmellFox/MFAAvalonia`
-的下载源、MirrorChyan 的 `mirrorchyan_rid`），要用 CI 之前得先过一遍。
+**为什么 `MAAFW_VERSION` 是硬耦合的**：workflow 里有一句
+
+```yaml
+- name: Remove built-in runtime in MFA
+  run: rm -rf MFA/runtimes
+```
+
+MFAAvalonia 自带的框架**会被删掉**，换成这次下载的 MaaFramework release 里的
+`deps/bin`（由 `install_deps()` 拷进 `install/runtimes/<tag>/native`）。
+所以**真正决定 Agent 协议版本的是 `MAAFW_VERSION`**，不是 MFAAvalonia 的版本 ——
+`MFAA_VERSION` 只管 GUI 外壳。
+
+之前两个都是 `""`（= 下载 latest），而上游一发新版本，这两边就悄悄错开，
+CI 出的包全部 `Protocol version mismatch`。
+
+⚠️ **两个版本号是两套编号**：MaaFramework 是 `v5.x.y`，MFAAvalonia 是 `v2.x.y`。
+别把 `5.13.1` 填进 `MFAA_VERSION`（那个 tag 不存在，CI 会直接找不到 release）。
+不要凭 `MFAAvalonia.exe` 的版本信息判断 —— 它是 `1.0.0+<sha>`，没用；
+看 `MFAAvalonia.deps.json` 里 `MFAAvalonia.Core/<版本>` 才是真的。
+
+#### 还没收拾的 CI 模板残留
+
+要用 CI 之前还得过一遍（本项目至今没跑过 CI，这些是 MaaPracticeBoilerplate 的原文）：
+
+- 产物名还是 `MaaXXX-${os}-${arch}`（`install.yml` 的 upload-artifact，
+  以及 `mirrorchyan_release.yml` 里当文件名模式用）
+- `mirrorchyan_*` 两个 workflow 需要 `mirrorchyan_rid` 和对应 secret，
+  用不上就直接删
+- `robinraju/release-downloader@v1` 是拿 tag 钉的，不是 commit sha
 
 ---
 
