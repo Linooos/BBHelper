@@ -692,7 +692,7 @@
                     "name": "Yes",
                     "label": "没有，要重新选关",
                     "option": [
-                        "关卡名称"
+                        "使用关卡名称"
                     ],
                     "pipeline_override": {
                         "Battle_PickStage": {
@@ -730,6 +730,7 @@
             "pipeline_override": {
                 "Battle_PickStage": {
                     "recognition": {
+                        "type": "OCR",
                         "param": {
                             "roi": [
                                 0,
@@ -743,10 +744,84 @@
                         }
                     },
                     "action": {
+                        "type": "Click",
                         "param": {
+                            "target": true,
                             "target_offset": [
                                 20,
                                 83,
+                                0,
+                                0
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        // 只在「关尾无再次挑战 → Yes」时显示。
+        // ⭐ 这里必须**两条路都写全** recognition.type 和 action.param ——
+        //    pipeline_override 是**深合并**，只写一半的话，从另一条切过来时
+        //    上一套的值会残留（比如 type 还是 DirectHit、target 还是旧坐标）。
+        "使用关卡名称": {
+            "type": "switch",
+            "description": "怎么让脚本认出「要重新点开哪一关」。\n\n打开（默认）：填**关卡名称**，脚本在关卡列表里全屏找这个名字。\n关闭：直接填**关卡在屏幕上的坐标**，脚本不看内容、按坐标点。\n\n不确定选哪个就用默认的名称匹配 —— 它换位置也不用改。",
+            "default_case": "Yes",
+            "cases": [
+                {
+                    "name": "Yes",
+                    "label": "按关卡名称（推荐）",
+                    "option": [
+                        "关卡名称"
+                    ]
+                },
+                {
+                    "name": "No",
+                    "label": "按坐标",
+                    "option": [
+                        "关卡坐标"
+                    ]
+                }
+            ]
+        },
+        // 坐标那条路：DirectHit（不看内容）+ 点给定坐标。
+        // ⚠️ DirectHit 意味着「轮到它时一定命中」——它靠 enabled 和
+        //    Battle_ClearStage_Round 里排最后来兜底，别把它挪前面。
+        "关卡坐标": {
+            "type": "input",
+            "description": "关卡在**关卡列表**里的屏幕坐标，单位是像素。\n\n⚠️ 需要自己量：截图后用画图工具看那个关卡卡片的位置，取卡片中心的 x 和 y。\n⚠️ 只支持 1280×720；换分辨率要重新量。\n\n选这条路脚本不认字、直接按坐标点 —— 关卡换位置就会点到别的东西，所以关卡列表位置固定时才用。",
+            "inputs": [
+                {
+                    "name": "X",
+                    "label": "X 坐标",
+                    "default": "640",
+                    "pipeline_type": "int",
+                    "verify": "^[0-9]+$",
+                    "pattern_msg": "请填 0~1280 的整数"
+                },
+                {
+                    "name": "Y",
+                    "label": "Y 坐标",
+                    "default": "305",
+                    "pipeline_type": "int",
+                    "verify": "^[0-9]+$",
+                    "pattern_msg": "请填 0~720 的整数"
+                }
+            ],
+            "pipeline_override": {
+                "Battle_PickStage": {
+                    "recognition": {
+                        "type": "DirectHit"
+                    },
+                    "action": {
+                        "type": "Click",
+                        "param": {
+                            "target": [
+                                "{X}",
+                                "{Y}"
+                            ],
+                            "target_offset": [
+                                0,
+                                0,
                                 0,
                                 0
                             ]
