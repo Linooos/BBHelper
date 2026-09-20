@@ -323,7 +323,7 @@
             "param": {}
         },
         "next": [
-            "Battle_StickDown"
+            "Battle_SawDown"
         ]
     },
     "Battle_StickDown": {
@@ -368,7 +368,7 @@
             }
         },
         "next": [
-            "Battle_SawDown"
+            "Battle_FightLoop"
         ]
     },
     "Battle_SawDown": {
@@ -391,7 +391,7 @@
             }
         },
         "next": [
-            "Battle_FightLoop"
+            "Battle_StickDown"
         ]
     },
     "Battle_FightLoop": {

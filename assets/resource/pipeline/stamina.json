@@ -71,26 +71,6 @@
             "Presence_Resonance_Gate"
         ]
     },
-    "Stamina_NotImplemented": {
-        "doc": "「关卡来源 → 自定义关卡（未实现）」的**占位终点**。\n\n═══ 为什么需要这个节点，而不是只在 UI 上标一句「未实现」 ═══\n2026-09-20 发现：自定义那个 case 原本**没有任何 pipeline_override**，于是\nStamina_Entry.next 一直停在管线默认值 [\"Stamina_MiaoWang\"] ——\n**用户把开关拨到「自定义（未实现）」，脚本反而会照跑喵王の福利**。\n\n而 Stamina_Plan 会按「体力目标」折算次数：默认目标 300 ÷ 喵王每次 10\n≈ 刷 30 次 ≈ **消耗 300 体力**。\n\n也就是说，一个写着「未实现」的开关实际会烧掉 300 体力。对主号来说这是必须\n堵掉的洞 —— UI 上的「未实现」不能只是一句标语，行为上也得真的什么都不做。\n\n═══ 行为 ═══\nphase_skip 把「体力消耗」记为 **skipped**（不是 done）——流程正常走过去了，\n但这一步没产生任何实际效果。然后照常交给下一个阶段。\n\n═══ 等自定义功能真做出来 ═══\n把 interface.json 里「关卡来源 → No」那条 case 的 pipeline_override 改成指向\n自定义关卡的入场链即可，本节点到时候删掉。",
-        "recognition": {
-            "type": "DirectHit",
-            "param": {}
-        },
-        "action": {
-            "type": "Custom",
-            "param": {
-                "custom_action": "phase_skip",
-                "custom_action_param": {
-                    "phase": "体力消耗"
-                }
-            }
-        },
-        "next": [
-            "[JumpBack]Common_NetWait",
-            "Presence_Resonance_Gate"
-        ]
-    },
     "Stamina_MiaoWang_Nav": {
         "doc": "**喵王の福利专属**的导航：首页/战斗 → 活动 → 多元裂缝 → 曜日挑战。\n\n⚠️ 这条路径是为「喵王和同在曜日挑战页的关卡」写的。别的关卡如果在\n螺旋回廊 / 虚轴之庭那些页，应该另写一条链，不要硬套这条。",
         "recognition": {
@@ -426,6 +406,330 @@
             "[JumpBack]Common_NetWait",
             "Stamina_Plan"
         ]
+    },
+    "Stamina_Custom": {
+        "doc": "「关卡来源 → 自定义关卡」的入口。\n\n整条链：战斗 → 左侧「活动」→ 点固定位置的活动卡片（休诊时间 / 军火承包）\n→ 关卡列表 → 翻页到目标页 → 选关卡 → 详情页 → 折算次数 → 刷关。\n\n═══ 为什么活动卡片用固定坐标 ═══\n「休诊时间」的标题 OCR 会拆成「休诊」「时间」两框（装饰字体，实测\n2026-09-20），按名字认不了 —— 所以只能点固定位置。\n用户确认：活动页左侧这两个格子是固定的，不会随滚动移动。\n\n活动1 = 休诊时间 (441,284)，活动2 = 军火承包 (441,561)，由界面「活动栏位」覆盖。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Stamina_Custom_Nav"
+        ]
+    },
+    "Stamina_Custom_Nav": {
+        "doc": "导航起点（纯路由）。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Stamina_Custom_Nav01Battle"
+        ]
+    },
+    "Stamina_Custom_Nav01Battle": {
+        "doc": "导航第 1 步：点顶部「战斗」。ROI 右边界止于 840（右邻「装备」从 857 起）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    720,
+                    20,
+                    120,
+                    110
+                ],
+                "expected": [
+                    "战斗"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Stamina_Custom_Nav02Gate",
+            "Stamina_GiveUp"
+        ],
+        "post_delay": 1500,
+        "timeout": 4000
+    },
+    "Stamina_Custom_Nav02Gate": {
+        "doc": "层级判定 + 退回循环的汇合点（同使魔的爱 / 世界那么大 / 喵王那条）。\n\n每轮：看左侧竖栏（主线/活动/挑战）在不在 —— 在就是战斗主菜单，不在就是子页。\n候选顺序：Activity（在就点）→ BackArrow（详情页走左上箭头）→ Up（子页点右上角面包屑）。\n\n⚠️ 战斗菜单**有滞留**：点「战斗」不一定在主菜单，可能直接落在上次的子页里。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Stamina_Custom_Nav02Activity",
+            "Stamina_Custom_Nav02BackArrow",
+            "Stamina_Custom_Nav02Up"
+        ],
+        "post_delay": 1000,
+        "max_hit": 12
+    },
+    "Stamina_Custom_Nav02Activity": {
+        "doc": "战斗主菜单左侧竖栏的「活动」。\n\n⚠️ ROI 收得很紧（x 60~140）：活动卡片上还有个「活动开放中」角标，\n宽 ROI 会把它一起框进来。实测「活动」在 [70,250,59,35]。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    60,
+                    245,
+                    80,
+                    45
+                ],
+                "expected": [
+                    "活动"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Stamina_Custom_Pick"
+        ],
+        "post_delay": 1500,
+        "timeout": 3000
+    },
+    "Stamina_Custom_Nav02BackArrow": {
+        "doc": "**关卡详情页专用**返回：点左上角箭头 (65,148)。判据「选择助战好友」是详情页独有的文案。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    640,
+                    628,
+                    240,
+                    52
+                ],
+                "expected": [
+                    "选择助战好友"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    65,
+                    148
+                ]
+            }
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Stamina_Custom_Nav02Gate",
+            "Stamina_GiveUp"
+        ],
+        "post_delay": 2000
+    },
+    "Stamina_Custom_Nav02Up": {
+        "doc": "点右上角蓝色子菜单名按钮退回上一层 (1155,155)。**只对子页有效**。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    1155,
+                    155
+                ]
+            }
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Stamina_Custom_Nav02Gate",
+            "Stamina_GiveUp"
+        ],
+        "post_delay": 2000
+    },
+    "Stamina_Custom_Pick": {
+        "doc": "点活动卡片。**坐标由界面「活动栏位」覆盖**：\n    活动1 = 休诊时间 (441,284)   ← 默认\n    活动2 = 军火承包 (441,561)\n\n为什么不用 OCR 认名字：休诊时间的标题被拆成「休诊」「时间」两个框（实测\n2026-09-20），拼不回来。用户也确认了左侧这两个格子位置固定。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    441,
+                    284
+                ]
+            }
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Stamina_Custom_PagePlan",
+            "Stamina_GiveUp"
+        ],
+        "post_delay": 2000
+    },
+    "Stamina_Custom_PagePlan": {
+        "doc": "⭐ **翻页次数折算**：读列表底部的「N / M」，算出要往回点几次、往前进几次。\n\n纯 pipeline 做不到 —— OCR 只能匹配文本、不能拿「2 / 2」做减法，也没法按结果\n决定一个节点跑几次。所以用 CustomAction plan_stage_page（见 agent/my_action.py）。\n\n⚠️ 分页是**滞留**的（实测：退出去再进来还停在上次那页），所以统一\n「先退到第 1 页、再前进 N-1 次」—— 结果只由目标页数决定，与进来时在哪页无关。\n\n「页数」下拉覆盖的就是这里 custom_action_param.target_page。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "plan_stage_page",
+                "custom_action_param": {
+                    "target_page": 1,
+                    "roi": [
+                        590,
+                        635,
+                        100,
+                        55
+                    ],
+                    "back_node": "Stamina_Custom_PageBack",
+                    "fwd_node": "Stamina_Custom_PageFwd",
+                    "page_cap": 30
+                }
+            }
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Stamina_Custom_PageBack",
+            "Stamina_Custom_PageFwd"
+        ]
+    },
+    "Stamina_Custom_PageBack": {
+        "doc": "往回翻一页（点 ◀）。\n\n`enabled` 和 `max_hit` 都由 plan_stage_page 在运行时改写：\n已经在第 1 页时 enabled=false，否则 max_hit = 当前页-1。\n默认 enabled=false 是**故意**的 —— 万一 plan 没跑成，不会瞎翻页。",
+        "enabled": false,
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    540,
+                    680
+                ]
+            }
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Stamina_Custom_PageBackGate"
+        ],
+        "post_delay": 800
+    },
+    "Stamina_Custom_PageBackGate": {
+        "doc": "往回翻的汇合点。每点一次回到这里重新求值 ⟹ PageBack 的 max_hit 才会累加\n（dev_loop §5.9①：直接自环的话计数器不会推进）。用尽后顺延到下一步。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Stamina_Custom_PageBack",
+            "Stamina_Custom_PageFwd"
+        ],
+        "post_delay": 300
+    },
+    "Stamina_Custom_PageFwd": {
+        "doc": "往前翻一页（点 ▶）。`enabled` / `max_hit` 由 plan_stage_page 改写，\n默认关闭（理由同 PageBack）。",
+        "enabled": false,
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    755,
+                    680
+                ]
+            }
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Stamina_Custom_PageFwdGate"
+        ],
+        "post_delay": 800
+    },
+    "Stamina_Custom_PageFwdGate": {
+        "doc": "往前翻的汇合点。用尽后顺延到选关卡。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Stamina_Custom_PageFwd",
+            "Stamina_Custom_PickStage"
+        ],
+        "post_delay": 300
+    },
+    "Stamina_Custom_PickStage": {
+        "doc": "**自定义选关的首次选关**。识别参数由界面「关卡定位」下的\n「关卡名称」（全屏 OCR 找名字）或「关卡坐标」（DirectHit 点坐标）覆盖 ——\n和 Battle_PickStage 是同一套参数，两个节点都会被覆盖。\n\n⚠️ 默认 expected 是一个**永远不会匹配**的占位串：用户没配置时这条链会平静地\n走 GiveUp，而不是乱点。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    0,
+                    0,
+                    0,
+                    0
+                ],
+                "expected": [
+                    "__未配置关卡__"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": true,
+                "target_offset": [
+                    20,
+                    83,
+                    0,
+                    0
+                ]
+            }
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Stamina_Arrived",
+            "Stamina_GiveUp"
+        ],
+        "post_delay": 1500,
+        "timeout": 3000
     },
     "Stamina_GiveUp": {
         "doc": "导航放弃点：退不出子页 / 找不到多元裂缝或曜日挑战 / 关卡卡片点了没反应。\n\n不报错、不终止，平静交给 Stamina_PhaseDone。这一次没刷，下次跑还会再试。",

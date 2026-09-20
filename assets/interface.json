@@ -449,7 +449,7 @@
         // 自定义关卡只是占位 —— 内容待补。
         "关卡来源": {
             "type": "switch",
-            "description": "体力消耗去刷哪个关卡。\n\n预设关卡：从下面的列表里选一个。\n自定义关卡：⬜ 尚未实现 —— 拨到这边不会消耗任何体力，直接跳过这个阶段。",
+            "description": "体力消耗去刷哪个关卡。\n\n预设关卡：直接选一个内置好的关卡。\n自定义关卡：自己选活动、翻到某一页、再指定关卡 —— 适合刷活动里的本。",
             "default_case": "Yes",
             "cases": [
                 {
@@ -462,17 +462,20 @@
                 },
                 {
                     "name": "No",
-                    "label": "自定义关卡（未实现）",
-                    // ⚠️ 这个 override **不能省**。
-                    // 省掉的话 Stamina_Entry.next 会退回管线默认值
-                    // ["Stamina_MiaoWang"] —— 用户拨到「未实现」，脚本反而照跑
-                    // 喵王の福利，而且按「体力目标」折算后要消耗约 300 体力。
-                    // 一个标着「未实现」的开关实际会烧体力，对主号是不能接受的。
-                    // 现在它走向 Stamina_NotImplemented：记 skipped、什么都不做。
+                    "label": "自定义关卡",
+                    // ⚠️ 这个 override **不能省**：省掉的话 Stamina_Entry.next 会退回
+                    // 管线默认值 ["Stamina_MiaoWang"]，也就是用户选了自定义、
+                    // 脚本却照跑喵王の福利（按体力目标折算后约 300 体力）。
+                    // 2026-09-20 就是因为这个洞，才先补了 Stamina_NotImplemented 兜底。
+                    "option": [
+                        "活动栏位",
+                        "页数",
+                        "关卡定位"
+                    ],
                     "pipeline_override": {
                         "Stamina_Entry": {
                             "next": [
-                                "Stamina_NotImplemented"
+                                "Stamina_Custom"
                             ]
                         }
                     }
@@ -748,8 +751,38 @@
                         "param": {
                             "target": true,
                             "target_offset": [
-                                20,
-                                83,
+                                0,
+                                80,
+                                0,
+                                0
+                            ]
+                        }
+                    }
+                },
+                // 自定义选关首次进关走的是另一个节点，同一套参数也要灌给它 ——
+                // 少给一个，第一次进关就会点不到（那个节点的默认识别是永不匹配的占位串）。
+                "Stamina_Custom_PickStage": {
+                    "recognition": {
+                        "type": "OCR",
+                        "param": {
+                            "roi": [
+                                0,
+                                0,
+                                0,
+                                0
+                            ],
+                            "expected": [
+                                "{名称}"
+                            ]
+                        }
+                    },
+                    "action": {
+                        "type": "Click",
+                        "param": {
+                            "target": true,
+                            "target_offset": [
+                                0,
+                                80,
                                 0,
                                 0
                             ]
@@ -827,8 +860,115 @@
                             ]
                         }
                     }
+                },
+                // 自定义选关首次进关走的是另一个节点，同一套参数也要灌给它。
+                "Stamina_Custom_PickStage": {
+                    "recognition": {
+                        "type": "DirectHit"
+                    },
+                    "action": {
+                        "type": "Click",
+                        "param": {
+                            "target": [
+                                "{X}",
+                                "{Y}"
+                            ],
+                            "target_offset": [
+                                0,
+                                0,
+                                0,
+                                0
+                            ]
+                        }
+                    }
                 }
             }
+        },
+        // ────────────── 自定义选关（体力消耗 → 关卡来源 → 自定义关卡）──────────────
+        "活动栏位": {
+            "type": "select",
+            "description": "刷哪个活动。\n\n两个位置是**固定**的：\n  活动1 = 休诊时间（上面那个格子）\n  活动2 = 军火承包（下面那个格子）\n\n按坐标点、不认名字 ——「休诊时间」这五个字在游戏里是装饰字体，OCR 会读成「休诊」「时间」两截，认不出来。",
+            "default_case": "活动1",
+            "cases": [
+                {
+                    "name": "活动1",
+                    "label": "活动1（休诊时间）",
+                    "pipeline_override": {
+                        "Stamina_Custom_Pick": {
+                            "action": {
+                                "param": {
+                                    "target": [
+                                        441,
+                                        284
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "活动2",
+                    "label": "活动2（军火承包）",
+                    "pipeline_override": {
+                        "Stamina_Custom_Pick": {
+                            "action": {
+                                "param": {
+                                    "target": [
+                                        441,
+                                        561
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        "页数": {
+            "type": "input",
+            "description": "要刷的关卡在活动里的第几页。\n\n⚠️ 游戏会**记住上次翻到哪页**，所以脚本每次都先退到第 1 页、再前进到你填的这页 —— 翻页结果和你上次停在哪无关。",
+            "inputs": [
+                {
+                    "name": "页数",
+                    "label": "页数",
+                    "default": "1",
+                    "pipeline_type": "int",
+                    "verify": "^[1-9][0-9]*$",
+                    "pattern_msg": "请填正整数"
+                }
+            ],
+            "pipeline_override": {
+                "Stamina_Custom_PagePlan": {
+                    "action": {
+                        "param": {
+                            "custom_action_param": {
+                                "target_page": "{页数}"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "关卡定位": {
+            "type": "switch",
+            "description": "翻到那一页之后，怎么找到要刷的关卡。\n\n按名称（默认）：照游戏里显示的原文填名字，脚本全屏找它。\n按坐标：直接填关卡卡片在屏幕上的位置。\n\n不确定就用名称 —— 关卡换位置了也不用改。",
+            "default_case": "Yes",
+            "cases": [
+                {
+                    "name": "Yes",
+                    "label": "按关卡名称（推荐）",
+                    "option": [
+                        "关卡名称"
+                    ]
+                },
+                {
+                    "name": "No",
+                    "label": "按坐标",
+                    "option": [
+                        "关卡坐标"
+                    ]
+                }
+            ]
         }
     }
 }
