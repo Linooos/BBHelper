@@ -107,11 +107,14 @@ python tools/install.py v0.1.0 win x86_64
 ```
 
 打包产物**自带 python**，用户不用装任何运行环境。这一步由
-`tools/setup_embed_python.py` 完成，`install.py` 会自动调它；要单独重装：
+`tools/setup_embed_python.py` 完成，`install.py` 会自动调它（认的是**目标平台**，
+不是宿主机 —— CI 全部跑在 ubuntu 上却要给 Windows 出包）。要单独重装：
 
 ```bash
-python tools/setup_embed_python.py --force
+python tools/setup_embed_python.py win x86_64 --force   # 目标平台 win x86_64
 ```
+
+首次会联网拉一份绿色 python 和依赖（约 100MB），之后走缓存。
 
 调试中踩过的坑都在 [docs/zh_cn/develop/dev_loop.md](./docs/zh_cn/develop/dev_loop.md)，
 游戏侧的侦察结论在 [docs/zh_cn/develop/game_recon.md](./docs/zh_cn/develop/game_recon.md)。

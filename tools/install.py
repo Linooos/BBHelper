@@ -13,6 +13,8 @@ except ModuleNotFoundError as e:
     ) from e
 
 from configure import configure_ocr_model
+from setup_embed_python import child_exec as embedded_python_exec
+from setup_embed_python import setup as setup_embedded_python
 
 
 working_dir = Path(__file__).parent.parent.resolve()
@@ -123,6 +125,8 @@ def install_resource():
     #
     # child_exec 指向**包内自带**的 python（setup_embed_python 装出来的），
     # 不用 PATH 上那个 —— 理由见 tools/setup_embed_python.py 的模块注释。
+    # 具体路径由目标平台决定（win 是 ./python/python.exe，mac/linux 是
+    # ./python/bin/python3），所以这里**不能写死**。
     #
     # 路径用 `./`：实测 MFAAvalonia 以包根为 CWD 启动子进程，
     # `./agent/main.py` 解析得到（2026-09-20 的 Protocol version mismatch 日志
@@ -131,10 +135,21 @@ def install_resource():
     #
     # `-u` = 不缓冲 stdout，否则 agent 的报错会卡在缓冲区里，
     # 拿不到「agent 到底为什么起不来」这条最关键的线索。
-    interface["agent"] = {
-        "child_exec": "./python/python.exe",
-        "child_args": ["-u", "./agent/main.py"],
-    }
+    if os_name == "android":
+        # Android 发的是「资源 APK」，agent 运行时来自 APK 自带的
+        # python-for-android，不走包内 python。
+        # ⚠️ 这个组合本项目**没有实测过**，写出来只是为了不让它静默错位。
+        print("⚠️  目标 android：不装内嵌 python，child_exec 保持裸 'python'。")
+        print("    这条路没验证过 —— 出问题先怀疑这里。")
+        interface["agent"] = {
+            "child_exec": "python",
+            "child_args": ["-u", "./agent/main.py"],
+        }
+    else:
+        interface["agent"] = {
+            "child_exec": embedded_python_exec(os_name, arch),
+            "child_args": ["-u", "./agent/main.py"],
+        }
 
     with open(install_path / "interface.json", "w", encoding="utf-8") as f:
         jsonc.dump(interface, f, ensure_ascii=False, indent=4)
@@ -165,15 +180,18 @@ def install_agent():
 def install_python():
     """把一份装了 maafw 的绿色 python 装到 install/python/。
 
+    ⚠️ 认的是 **os_name/arch（目标平台）**，不是 sys.platform（宿主机）。
+    CI 上两者不同 —— 全都跑在 ubuntu 上，却要给 win 出包。传错了会产出一个
+    agent 起不来的包，详见 setup_embed_python 的模块注释。
+
     ⚠️ 放在 install_agent() **之后**：setup_embed_python 会读
     agent/requirements.txt，虽然读的是源目录，但先拷过去更不容易搞混。
 
     可重复执行 —— 版本对得上就跳过，所以第二次打包几乎是瞬时的。
     """
-    sys.path.insert(0, str(Path(__file__).parent.resolve()))
-    import setup_embed_python
-
-    setup_embed_python.setup()
+    if os_name == "android":
+        return
+    setup_embedded_python(os_name, arch)
 
 
 if __name__ == "__main__":

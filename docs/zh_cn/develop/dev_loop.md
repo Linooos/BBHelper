@@ -252,17 +252,56 @@ interface["agent"] = {
 自带一份之后，「用哪个 python」这个变量就从发布链路里消失了。
 顺带把 dev/release 的版本冲突也解开了 —— 两边各用各的 python，见 §4.5 三。
 
-实现要点（照抄 MAA1999 / MaaStellaSora 的做法）：
+#### ⚠️⚠️ 判定看**目标平台**，不是宿主机
 
-| 步骤 | 说明 |
+这里踩过一次，症状很隐蔽：CI（`.github/workflows/install.yml`）的 `install` job
+**全部** `runs-on: ubuntu-latest`，但矩阵里有 `win` 这一格：
+
+```yaml
+matrix:
+  os: [win, macos, linux, android]   # ← 目标平台
+runs-on: ubuntu-latest               # ← 宿主机永远是 Linux
+```
+
+最早的版本写的是 `sys.platform`，于是 CI 上「宿主机是 linux ⟹ 跳过装 python」，
+而 `install.py` 照样把 `child_exec` 写成 `./python/python.exe` ——
+**产出一个看起来正常、但 agent 永远起不来的 Windows 包**。
+
+反方向也一样坏：本地 Windows 上跑 `install.py v1.0 linux x86_64`，会照着宿主机
+装一份 **Windows** python 塞进 linux 包。
+
+现在一律按 `os_name`/`arch`（= `install.py` 的 argv[2]/argv[3]）判定。
+
+#### 两条安装路径
+
+| 情况 | 做法 |
 | --- | --- |
-| 下载 | 官方 embeddable zip，`python-3.12.10-embed-amd64.zip`（约 11MB） |
-| 改 `._pth` | **必须**：取消注释 `import site`，补 `Lib\site-packages`。不改的话 pip 看着成功、`import maa` 照样失败 |
-| 装 pip | 官方 `get-pip.py`（embeddable 包不带 pip） |
-| 装依赖 | `pip install -r agent/requirements.txt` |
+| 宿主机 == 目标（本地 Windows 打包） | **跑包里那个解释器**装依赖，装完立刻复核版本 —— 最可靠 |
+| 宿主机 != 目标（CI ubuntu 给 win/mac/linux 打包） | **交叉安装**：宿主机的 pip + `--platform/--python-version/--only-binary=:all: --target` |
 
-> `maafw` 的 wheel 是 `py3-none-win_amd64`（纯 ABI 无关），装进 embeddable 没问题。
-> 它依赖 `numpy` / `maaagentbinary`，所以包会涨到 ~100MB 量级。
+交叉那条路 2026-09-20 在本机实测可行，落地的确实是目标平台的东西
+（`libMaaLinuxControlUnit.so`、`cpython-312-x86_64-linux-gnu.so`）。
+
+⚠️ pip 的 `--platform` **不展开平台兼容性**，是精确匹配 —— numpy 和 maafw
+挑的 tag 就不是同一个，所以每个目标平台要在 `_PIP_TAGS` 里把 tag 列全，
+少一个就会 backtrack 到旧版本（实测单 tag 时 numpy 从 2.5.3 掉到 2.2.6）。
+
+#### 取 python 的方式按目标平台分两种
+
+| 目标 | 来源 | child_exec |
+| --- | --- | --- |
+| win | 官方 embeddable zip（约 11MB） | `./python/python.exe` |
+| macos / linux | python-build-standalone `install_only` | `./python/bin/python3` |
+
+embeddable 版有两个坑，pbs 没有：
+
+| 坑 | 处理 |
+| --- | --- |
+| 默认**不加载 site-packages** | 改 `python3XX._pth`：取消注释 `import site`，补 `Lib\site-packages`、`DLLs`。不改的话 pip 看着成功、`import maa` 照样失败 |
+| 不带 pip | 官方 `get-pip.py` 现装 |
+
+> `maafw` 的 wheel 是 `py3-none-<平台>`（纯 ABI 无关），装进 embeddable 没问题。
+> 它依赖 `numpy` / `maaagentbinary`，所以包会涨到 ~100–160MB 量级。
 > `numpy` 有 cp3XX 版本限制 —— 换 `PYTHON_VERSION` 前先确认它有对应 wheel。
 
 #### 为什么 `./` 能用
@@ -275,16 +314,42 @@ interface["agent"] = {
 别拿它换 `./`。同理 `assets/interface.json` 里那份用 `{PROJECT_DIR}/../.venv/...`
 是**插件**的规则，两边形态本来就不同，**不能互相照抄**。
 
+#### agent/main.py 里的 sys.path.insert 不能删
+
+embeddable python 的 `._pth` 一旦存在，就**接管 `sys.path` 的初始化**，
+连带把「脚本所在目录自动进 `sys.path[0]`」这条也关掉了。
+不补的话 `import my_action` 直接 `ModuleNotFoundError`（2026-09-20 实测踩到，
+而且是**实测那个包里**踩到的 —— 不跑一次根本发现不了）。
+
 #### 打包后怎么验
 
-包里那个 python 是独立可跑的，不用开 MFAAvalonia：
+包里那个 python 在原平台上独立可跑，不用开 MFAAvalonia：
 
 ```bash
-install/python/python.exe -c "import maa, importlib.metadata as m; print(m.version('maafw'))"
-install/python/python.exe -m py_compile install/agent/main.py
+cd install
+./python/python.exe -u ./agent/main.py     # win；应打印 Usage 后退出，不报 import 错
+./python/bin/python3 -u ./agent/main.py    # mac/linux
 ```
 
-版本对不上时 `install.py` 自己会报（`setup_embed_python` 装完会复核一遍）。
+版本对不上时 `install.py` 自己会报（原生路径装完会复核一遍）。
+交叉安装跑不动解释器，所以只能靠 `install/python/.bbhelper-python` 这个标记文件
+判断要不要重装 —— 里面记着「目标平台 + Python 版本 + maafw 版本」。
+
+#### 🔴 还没解决的：CI 拉的是 **latest**
+
+`.github/workflows/install.yml` 顶部：
+
+```yaml
+MAAFW_VERSION: ""
+MFAA_VERSION: ""
+```
+
+**空 = 下载 latest**。而 `agent/requirements.txt` 钉的是死版本 ⟹
+上游一发新版本，这两边就悄悄错开，CI 出的包全部 `Protocol version mismatch`。
+
+正确做法是把这两个也钉死，和 `requirements.txt` 一起改。
+另外那几个 workflow 还是模板原文（`MaaXXX` 的产物名、`SweetSmellFox/MFAAvalonia`
+的下载源、MirrorChyan 的 `mirrorchyan_rid`），要用 CI 之前得先过一遍。
 
 ---
 
