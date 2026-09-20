@@ -541,7 +541,11 @@
                             "action": {
                                 "param": {
                                     "custom_action_param": {
-                                        "target_stamina": 180
+                                        "target_stamina": 180,
+                                        "roi": [600, 515, 320, 60],
+                                        "expected": ["消耗体力"],
+                                        "run_cap": 40,
+                                        "count_node": "Battle_ClearStage_Count"
                                     }
                                 }
                             }
@@ -555,7 +559,11 @@
                             "action": {
                                 "param": {
                                     "custom_action_param": {
-                                        "target_stamina": 200
+                                        "target_stamina": 200,
+                                        "roi": [600, 515, 320, 60],
+                                        "expected": ["消耗体力"],
+                                        "run_cap": 40,
+                                        "count_node": "Battle_ClearStage_Count"
                                     }
                                 }
                             }
@@ -569,7 +577,11 @@
                             "action": {
                                 "param": {
                                     "custom_action_param": {
-                                        "target_stamina": 300
+                                        "target_stamina": 300,
+                                        "roi": [600, 515, 320, 60],
+                                        "expected": ["消耗体力"],
+                                        "run_cap": 40,
+                                        "count_node": "Battle_ClearStage_Count"
                                     }
                                 }
                             }

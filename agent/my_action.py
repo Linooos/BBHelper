@@ -62,14 +62,14 @@ class PlanStaminaRunsAction(CustomAction):
         _dbg("enter, param=%r" % (param,))
 
         target = int(param.get("target_stamina", 300))
-        run_cap = int(param.get("run_cap", 20))
+        run_cap = int(param.get("run_cap", 40))
         count_node = param.get("count_node", "Battle_ClearStage_Count")
         base_node = param.get("base_node", OCR_BASE_NODE)
 
         per_run = int(param.get("stamina_per_run") or 0)
 
         if per_run <= 0:
-            roi = param.get("roi") or [900, 630, 380, 60]
+            roi = param.get("roi") or [600, 515, 320, 60]
             expected = param.get("expected") or ["消耗体力"]
 
             # ⚠️ CustomAction 的 argv **没有 image**（那是 CustomRecognition 的 AnalyzeArg 才有的）。

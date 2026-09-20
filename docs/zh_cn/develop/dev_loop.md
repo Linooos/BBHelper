@@ -706,8 +706,40 @@ summon 15 / weekly 2 / common 1），battle.json 精确 5/25 —— 开战、选
 ## 6. 写 pipeline 的几条本项目约定
 
 1. **全部节点用 v2 object 形态**（`recognition: {type, param}` / `action: {type, param}`）。
-   混用 v1 平铺形态会导致 `pipeline_override` 深合并时把整个 `action` 替换掉，
+   混用 v1 平铺形态会导致 `pipeline_override` 合并时把整个 `action` 替换掉，
    `custom_action` 注册名直接丢失。
+
+   ### ⚠️⚠️ 更正：`pipeline_override` **不是**深合并（2026-09-20 实测）
+
+   这条以前写的是「深合并，只覆盖指定字段、其余保留」—— **实测是错的**。
+   至少对 `custom_action_param` 这一层，**给一个键会把整块替换掉**。
+
+   实证（`debug/stamina_plan.log`，同一天两次运行）：
+
+   ```text
+   [02:25:57] enter, param={'count_node':..., 'expected':['消耗体力'],
+                            'roi':[600,515,320,60], 'run_cap':20, 'target_stamina':25}
+   [23:12:42] enter, param={'target_stamina': 300}          ← roi/expected/run_cap/count_node 全没了
+   ```
+
+   第一次走 `dev_run.py`（**不套界面选项**）→ 拿到 base 节点里的完整参数 ✓
+   第二次走界面 → 「体力目标」那条 override 只写了 `target_stamina`，
+   结果整块 `custom_action_param` 只剩这一个键 ✗
+
+   **后果**：`plan_stamina_runs` 退回自己的默认 ROI `[900,630,380,60]`（那是早期的
+   猜测值，位置是错的）⟹ 读不到「消耗体力」⟹ 不折算 ⟹ `max_hit` 停在 1
+   ⟹ **体力目标 300 只刷了一次**。用户报的就是这个。
+
+   **两条防御（都做了，谁也保不齐哪层先坏）**：
+
+   | 层 | 做法 |
+   | --- | --- |
+   | `interface.json` | override 里**把该 param 的所有键写全**，不依赖合并语义 |
+   | `agent/*.py` | `param.get(k, 默认值)` 的默认值**就是真实值**，参数被冲掉也能跑对 |
+
+   加新选项时：**先看目标节点的 param 有几个键**。只写一个就等着被冲掉。
+   （`页数` 那条也踩了同一个坑 —— `plan_stage_page` 的 roi/back_node/fwd_node
+   同样被冲，只是它的 Python 默认值恰好是对的，所以没暴露。）
 2. **开关用 `*_Gate` 空节点当切点**（`DirectHit` + `DoNothing`），
    靠 `interface.json` 的 `pipeline_override` 改它的 `next`。
    不要用 Flag 节点，也不要为开关写 Python 判断。
