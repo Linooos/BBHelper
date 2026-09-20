@@ -8,7 +8,8 @@
                     "Startup_DailyCheckin",
                     "Startup_NoticeClose",
                     "Common_MonthCardClaim",
-                    "Common_EventReward"
+                    "Common_EventReward",
+                    "Common_MonthCardAnim"
                 ]
             }
         },
@@ -18,6 +19,7 @@
         },
         "next": [
             "[JumpBack]Common_MonthCardClaim",
+            "[JumpBack]Common_MonthCardAnim",
             "[JumpBack]Common_EventReward",
             "[JumpBack]Common_NetWait",
             "[JumpBack]Startup_DailyCheckin",
