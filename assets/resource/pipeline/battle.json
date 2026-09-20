@@ -741,7 +741,7 @@
         "post_delay": 0
     },
     "Battle_RushGate": {
-        "doc": "一轮的汇合点：先看**进图了没**，没进就再来一轮。\n\n候选顺序：\n  1. Battle_RushTopGone  顶部「首页」「其他」都认不到了 ⟹ 进图了 → 开打\n  2. Battle_RushAgain    还认得到 ⟹ 再点一轮\n  3. Battle_OpenHelperList  三轮都没进去 ⟹ 退回老路（慢但稳）\n\n═══ ⚠️ 末尾 Battle_ClearStage_Done 是必需兜底（§5.12）═══\n前两个候选里：Battle_RushAgain 会被 rush_tick 在跑满三轮后关掉，\nBattle_OpenHelperList / Battle_PickHelper 都是 OCR、可能失配。\n三者同时失配 ⟹ 候选全失配 ⟹ 整条任务报错终止。\n所以链尾必须有恒命中的出口：DirectHit + next:[] 的 Battle_ClearStage_Done。\n\n它意味着「三轮抢进图没进去、老路两个入口也认不出来」—— 这时平静收尾\n比报错终止更合适（报错会把整个日常打断）。",
+        "doc": "一轮的汇合点：先看**进图了没**，没进就再来一轮。\n\n⚠️ **本节点没有 max_hit**（2026-09-21 拆掉）。\n刹车交给 Python 那边的 rush_tick（跑满三轮就把 Battle_RushAgain 关掉），\n这里不需要再挂一个。原因和 Battle_RushAgain 完全一样：max_hit 是\n**整条任务范围累加**的，挂在这里等于「抢进图总共只能进 2 个 episode」——\n用户实测第二轮就卡死在 Battle_RushTap2（它的 next 只有本节点，\n本节点失配 ⟹ 候选全失配 ⟹ 整条任务报错）。\n\n去掉之后本节点也一定能走出去：TopGone 命中就开打、Again 命中就再来一轮、\n两个都不中就顺延到 OpenHelperList / PickHelper / Done（DirectHit 兜底）。\n\n候选顺序：\n  1. Battle_RushTopGone  顶部「首页」「其他」都认不到了 ⟹ 进图了 → 开打\n  2. Battle_RushAgain    还认得到 ⟹ 再点一轮\n  3. Battle_OpenHelperList  三轮都没进去 ⟹ 退回老路（慢但稳）\n\n═══ ⚠️ 末尾 Battle_ClearStage_Done 是必需兜底（§5.12）═══\n前两个候选里：Battle_RushAgain 会被 rush_tick 在跑满三轮后关掉，\nBattle_OpenHelperList / Battle_PickHelper 都是 OCR、可能失配。\n三者同时失配 ⟹ 候选全失配 ⟹ 整条任务报错终止。\n所以链尾必须有恒命中的出口：DirectHit + next:[] 的 Battle_ClearStage_Done。\n\n它意味着「三轮抢进图没进去、老路两个入口也认不出来」—— 这时平静收尾\n比报错终止更合适（报错会把整个日常打断）。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -758,8 +758,7 @@
             "Battle_PickHelper",
             "Battle_ClearStage_Done"
         ],
-        "post_delay": 0,
-        "max_hit": 6
+        "post_delay": 0
     },
     "Battle_RushTopGone": {
         "doc": "⭐ **进图判定**：顶部导航的「首页」和「其他」**都认不到**了。\n\n═══ 为什么换成这个（用户 2026-09-21 的意见）═══\n上一版用 `inverse` 认「选择助战好友」，用户实测不可靠。\n这两个图标在关卡详情页一定在，而**进图后顶栏会变**、两个都认不到 —— 信号更干净。\n左右各取一个是为了不容易被同一个遮挡物同时干掉。\n\n⚠️ `inverse` 的语义是「识别到了当没识别到」⟹ 这里配 `Or{首页, 其他}`，\n含义正好是 **NOT(首页 or 其他) = 两个都没有** ✓ 不是「缺一个就算」。\n\n⚠️ inverse 节点的 Click 会失效（没识别到东西），所以本节点只能 DoNothing。\n\n═══ ⚠️ 命中要接 Battle_SawDown，**不是** Battle_StickDown（2026-09-21 踩过）═══\n战斗那条链的入口是 **SawDown（按攻击圆盘）**，它的 next 才是 StickDown（推摇杆）：\n    SawDown  → StickDown → StickRight → FightLoop\n我第一版写成了直接接 StickDown —— 后果是**攻击键一次都没按**，\n摇杆推着、武器不举，角色只会往前跑。用户报的「进图后没有按攻击圆盘」就是它。\n\n教训：换入口时**看准那条链的头**，别从中段接。",

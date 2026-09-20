@@ -850,3 +850,26 @@ sus = [(k, [x for x in v["next"] if not x.startswith("[JumpBack]")])
 2. 或者干脆用**坐标 / TemplateMatch** 绕开 OCR
 
 ⚠️ 用坐标的前提是**目标位置固定**。位置会变的（列表滚动、卡片重排）就得想别的办法。
+
+### 5.12 补：别拿 `max_hit` 当「每次进入重置」的刹车 ⚠️
+
+`max_hit` 是**整条任务范围累加**的（§5.9①）。拿它当「每次只许跑 N 轮」的刹车，
+就会变成「整条任务总共只许跑 N 轮」—— 而这种差别只有在**同一条链被反复进入**时才暴露。
+
+2026-09-21 连着栽了两次，都是抢进图：
+
+| 节点 | 本来想表达 | 实际效果 |
+| --- | --- | --- |
+| `Battle_RushAgain` | 每次进图最多 3 轮 | 整条任务总共 3 轮 ⟹ 第 2 个 episode 就没额度了 |
+| `Battle_RushGate`  | （同上，漏改的第二个）| 整条任务总共 6 次 ⟹ **第二轮直接卡死** |
+
+`RushGate` 那次的现象是「卡在 `Battle_RushTap2`」：
+`Tap2.next = [NetWait, RushGate]`，而 `RushGate` 的额度耗尽后是**失配**、
+不是「什么都不做」⟹ 候选全失配 ⟹ §5.9② 报错终止。
+
+**规矩：凡是「每次进入都要重新计数」的刹车，不能用 max_hit。**
+用 Python 自己记数 + `override_pipeline({node: {"enabled": ...}})` 开关
+（本项目的 `rush_reset` / `rush_tick`，见 agent/my_action.py）。
+
+⚠️ 而且**同一段逻辑里别只改一半** —— 我改了 `RushAgain` 却漏了 `RushGate`，
+结果修完之后换了个地方以同样的方式炸。
