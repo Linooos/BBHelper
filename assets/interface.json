@@ -542,8 +542,15 @@
                                 "param": {
                                     "custom_action_param": {
                                         "target_stamina": 180,
-                                        "roi": [600, 515, 320, 60],
-                                        "expected": ["消耗体力"],
+                                        "roi": [
+                                            600,
+                                            515,
+                                            320,
+                                            60
+                                        ],
+                                        "expected": [
+                                            "消耗体力"
+                                        ],
                                         "run_cap": 40,
                                         "count_node": "Battle_ClearStage_Count"
                                     }
@@ -560,8 +567,15 @@
                                 "param": {
                                     "custom_action_param": {
                                         "target_stamina": 200,
-                                        "roi": [600, 515, 320, 60],
-                                        "expected": ["消耗体力"],
+                                        "roi": [
+                                            600,
+                                            515,
+                                            320,
+                                            60
+                                        ],
+                                        "expected": [
+                                            "消耗体力"
+                                        ],
                                         "run_cap": 40,
                                         "count_node": "Battle_ClearStage_Count"
                                     }
@@ -578,8 +592,15 @@
                                 "param": {
                                     "custom_action_param": {
                                         "target_stamina": 300,
-                                        "roi": [600, 515, 320, 60],
-                                        "expected": ["消耗体力"],
+                                        "roi": [
+                                            600,
+                                            515,
+                                            320,
+                                            60
+                                        ],
+                                        "expected": [
+                                            "消耗体力"
+                                        ],
                                         "run_cap": 40,
                                         "count_node": "Battle_ClearStage_Count"
                                     }
@@ -899,12 +920,12 @@
         // ────────────── 自定义选关（体力消耗 → 关卡来源 → 自定义关卡）──────────────
         "活动栏位": {
             "type": "select",
-            "description": "刷哪个活动。\n\n两个位置是**固定**的：\n  活动1 = 休诊时间（上面那个格子）\n  活动2 = 军火承包（下面那个格子）\n\n按坐标点、不认名字 ——「休诊时间」这五个字在游戏里是装饰字体，OCR 会读成「休诊」「时间」两截，认不出来。",
+            "description": "刷哪个活动。\n\n两个位置是**固定**的：\n  活动1：活动页左侧上面的格子\n  活动2：活动页左侧上面的格子 \n\n按坐标点、不认名字。",
             "default_case": "活动1",
             "cases": [
                 {
                     "name": "活动1",
-                    "label": "活动1（休诊时间）",
+                    "label": "活动1",
                     "pipeline_override": {
                         "Stamina_Custom_Pick": {
                             "action": {
@@ -920,7 +941,7 @@
                 },
                 {
                     "name": "活动2",
-                    "label": "活动2（军火承包）",
+                    "label": "活动2",
                     "pipeline_override": {
                         "Stamina_Custom_Pick": {
                             "action": {
