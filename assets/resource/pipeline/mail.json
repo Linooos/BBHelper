@@ -15,6 +15,7 @@
             }
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Mail_Nav01Social",
             "Mail_Loop"
         ]
@@ -30,6 +31,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Mail_Nav01Social"
         ]
     },
@@ -54,6 +56,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Mail_Nav02MailEntry",
             "Mail_Nav_Fail"
         ],
@@ -81,6 +84,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Mail_Nav03Retry",
             "Mail_Nav_Fail"
         ],
@@ -98,6 +102,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "[JumpBack]Common_PopupGate",
             "Mail_ClaimStamina",
             "Mail_ClaimAll",
@@ -126,6 +131,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Mail_DismissClaimPopup",
             "Mail_Loop"
         ],
@@ -159,6 +165,7 @@
             }
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Mail_Loop"
         ],
         "post_delay": 800,
@@ -186,6 +193,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Mail_DismissClaimPopup",
             "Mail_Loop"
         ],
@@ -209,6 +217,7 @@
             }
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Daily_Summon"
         ]
     },
@@ -223,6 +232,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Mail_Loop",
             "Mail_Nav03Reclick"
         ],
@@ -240,6 +250,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Mail_Nav02MailEntry",
             "Mail_Nav_Fail"
         ]
@@ -255,6 +266,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Mail_PhaseDone"
         ]
     }

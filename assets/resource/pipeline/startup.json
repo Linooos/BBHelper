@@ -12,6 +12,7 @@
         },
         "action": {"type": "DoNothing", "param": {}},
         "next": [
+            "[JumpBack]Common_NetWait",
             "[JumpBack]Startup_DailyCheckin",
             "[JumpBack]Startup_NoticeClose",
             "[JumpBack]Startup_BirthdayClose",

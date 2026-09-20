@@ -634,6 +634,75 @@ tr -cd '\11\12\15\40-\176\200-\377' < debug/maafw.log | grep "OCRer::analyze"
 
 ---
 
+## 5.10 全局前置检查：`[JumpBack]Common_NetWait`
+
+「网络连接中…」这个弹窗**不是启动期专属** —— 跑日常跑到一半也会弹，而且它盖住
+屏幕、吞掉点击。不处理的话那一轮识别全失配 → 顺着 next 一路降级 → 最坏直接
+`Task.Failed`，**一整天的脚本白跑**。
+
+所以 `Common_NetWait` 被挂到了每个节点的 `next` **首位**：
+
+```jsonc
+"AnyNode": {
+    "next": ["[JumpBack]Common_NetWait", "...原本的候选..."]
+}
+```
+
+### 为什么是 `[JumpBack]` 候选而不是别的
+
+MaaFramework 早在 5.1 就把 `interrupt` / `is_sub` 废弃了，schema 里明写
+「推荐使用节点前缀跳回功能 `[JumpBack]` 替代」。所以这是官方路子。
+
+配合 §5.5 / §5.9① 的语义，行为正好是「等待」：
+
+```text
+调用方求值 next → 命中 NetWait → DoNothing 等一拍 → next 为空 = 返回调用方
+                → 调用方**从头重新求值** → 又命中 → 又等一拍 …… 直到弹窗消失
+弹窗消失         → NetWait 失配 → 顺延到调用方原本的候选，正常往下走
+```
+
+⚠️ **刹车只能装在 NetWait 自己身上。** §5.9①：子程序返回时调用方**识别不会重跑**，
+所以挂在调用方身上的 `max_hit` 永远不累加。`max_hit: 600` × `post_delay: 1000ms`
+≈ 累计 10 分钟的等待预算。**注意它是整条任务范围共享的、不是每次出现重置** ——
+预算耗尽后 NetWait 不再命中，调用方照常往下走（宁可失败也不无限等）。
+
+### 三条硬约束
+
+| 约束 | 写错的后果 |
+| --- | --- |
+| 识别必须是能失配的 OCR，**不能是 DirectHit** | §5.5 规则 1：调用方每次重新求值都命中 → 死循环 |
+| `next` 为空的节点**不能挂** | §5.9②：候选全失配 = 整条任务炸。而且它们没有「继续走」的语义 |
+| battle.json 只挂 5 个节点 | 战斗中不会弹这个 |
+
+当前覆盖：非战斗文件 **100%**（entry 19 / presence 81 / mail 12 / stamina 20 /
+summon 15 / weekly 2 / common 1），battle.json 精确 5/25 —— 开战、选助战好友、
+以及通往两处「结算确定」的汇合点。**下次加新节点时记得手动补这一行。**
+
+### 怎么验的
+
+写个一次性的最小用例，跑 `run_pipeline` 看它到底顺延没有：
+
+```jsonc
+"T_NetFallThrough": { "recognition": { "type": "DirectHit" }, "next": ["[JumpBack]Common_NetWait", "T_Done"] },
+"T_Done":           { "recognition": { "type": "DirectHit" }, "next": [] }
+```
+
+实测 `status: succeeded`、节点列表里是 `T_NetFallThrough → T_Done`，
+`Common_NetWait` 不出现（说明它失配了）—— 顺延机制成立。
+
+> ⚠️ 别拿**门控类节点直接当入口**去测（`Common_NetWait` / `Common_PopupGate`）：
+> 它们本来就是「有弹窗才命中」，单独跑必然识别不中、任务 failed。
+> 这不是 bug，是用法不对 —— 它们只能当 `[JumpBack]` 候选被调用方使用。
+
+### 相关
+
+`startup.json` 里的 `Startup_ConnectingWait` 是同一件事，但当年**刻意关掉了**
+（`enabled: false`）—— 因为接进启动门控会让门控自旋、把「启动超时 120 秒」
+悄悄变成 270 秒。这里的形态不同：刹车挂在自旋体自己身上、不占用任何外层计数器，
+所以那个副作用不存在。
+
+---
+
 ## 6. 写 pipeline 的几条本项目约定
 
 1. **全部节点用 v2 object 形态**（`recognition: {type, param}` / `action: {type, param}`）。

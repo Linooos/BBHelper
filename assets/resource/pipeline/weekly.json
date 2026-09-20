@@ -9,7 +9,10 @@
                 "custom_action_param": {"phase": "每周任务"}
             }
         },
-        "next": ["Weekly_PhaseDone"]
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Weekly_PhaseDone"
+        ]
     },
 
     "Weekly_PhaseDone": {
@@ -22,6 +25,9 @@
                 "custom_action_param": {"phase": "每周任务"}
             }
         },
-        "next": ["Daily_Finish"]
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Daily_Finish"
+        ]
     }
 }

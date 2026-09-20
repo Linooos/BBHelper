@@ -15,6 +15,7 @@
             }
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Summon_Claim",
             "Summon_Nav"
         ]
@@ -30,6 +31,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Summon_Nav01Lobby"
         ]
     },
@@ -54,6 +56,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Summon_Nav02TaskCenter",
             "Summon_Nav_Fail"
         ],
@@ -80,6 +83,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Summon_Nav03Retry",
             "Summon_Nav_Fail"
         ],
@@ -107,6 +111,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Summon_Loop",
             "Summon_PhaseDone"
         ],
@@ -124,6 +129,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "[JumpBack]Common_PopupGate",
             "Summon_Claim",
             "Summon_Accept_Click",
@@ -154,6 +160,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "[JumpBack]Common_PopupGate",
             "Summon_Loop"
         ],
@@ -182,6 +189,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Summon_Accept_AutoAssign",
             "[JumpBack]Common_PopupGate",
             "Summon_Loop"
@@ -211,6 +219,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Summon_Accept_Depart",
             "[JumpBack]Common_PopupGate",
             "Summon_Loop"
@@ -240,6 +249,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "[JumpBack]Common_PopupGate",
             "Summon_Loop"
         ],
@@ -258,6 +268,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "[JumpBack]Common_PopupGate",
             "Summon_PhaseDone"
         ]
@@ -278,6 +289,7 @@
             }
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Presence_SummonLove_Gate"
         ]
     },
@@ -292,6 +304,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Summon_Nav03Tab",
             "Summon_Nav03Reclick"
         ],
@@ -309,6 +322,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Summon_Nav02TaskCenter",
             "Summon_Nav_Fail"
         ]
@@ -324,6 +338,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Summon_PhaseDone"
         ]
     }

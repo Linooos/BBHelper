@@ -15,6 +15,7 @@
             }
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Stamina_MiaoWang"
         ]
     },
@@ -45,6 +46,7 @@
             }
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "[JumpBack]Battle_ClearStage",
             "Stamina_PhaseDone"
         ]
@@ -65,6 +67,7 @@
             }
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Presence_Resonance_Gate"
         ]
     },
@@ -84,6 +87,7 @@
             }
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Presence_Resonance_Gate"
         ]
     },
@@ -98,6 +102,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Stamina_MiaoWang_Nav01Battle"
         ]
     },
@@ -122,6 +127,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Stamina_MiaoWang_Nav02Gate",
             "Stamina_GiveUp"
         ],
@@ -139,6 +145,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Stamina_MiaoWang_Nav02Activity",
             "Stamina_MiaoWang_Nav02BackArrow",
             "Stamina_MiaoWang_Nav02Up"
@@ -167,6 +174,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Stamina_MiaoWang_Nav03Reset"
         ],
         "post_delay": 1500,
@@ -198,6 +206,7 @@
             }
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Stamina_MiaoWang_Nav02Gate",
             "Stamina_GiveUp"
         ],
@@ -219,6 +228,7 @@
             }
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Stamina_MiaoWang_Nav02Gate",
             "Stamina_GiveUp"
         ],
@@ -245,6 +255,7 @@
             }
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Stamina_MiaoWang_Nav03ResetGate",
             "Stamina_MiaoWang_Nav03Gate"
         ],
@@ -261,6 +272,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Stamina_MiaoWang_Nav03Rift",
             "Stamina_MiaoWang_Nav03Reset"
         ],
@@ -278,6 +290,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Stamina_MiaoWang_Nav03Rift",
             "Stamina_MiaoWang_Nav03Scroll",
             "Stamina_GiveUp"
@@ -306,6 +319,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Stamina_MiaoWang_Nav04Youri"
         ],
         "post_delay": 1500,
@@ -332,6 +346,7 @@
             }
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Stamina_MiaoWang_Nav03Gate"
         ],
         "post_delay": 800
@@ -357,6 +372,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Stamina_MiaoWang_Pick",
             "Stamina_GiveUp"
         ],
@@ -389,6 +405,7 @@
             }
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Stamina_Arrived",
             "Stamina_GiveUp"
         ],
@@ -406,6 +423,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Stamina_Plan"
         ]
     },
@@ -420,6 +438,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Stamina_PhaseDone"
         ]
     },
@@ -434,6 +453,7 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "Stamina_MiaoWang_Pick",
             "Stamina_MiaoWang_Nav"
         ]

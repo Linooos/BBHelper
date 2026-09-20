@@ -3,7 +3,10 @@
         "doc": "总入口。第一步**先确保在大厅**（冷启动也能直接跑），然后才进日常阶段。\n\n阶段顺序：启动/回大厅 → 邮件 → 使魔探险 → 使魔的爱 → 世界那么大 → 战力补强 → 体力消耗 → 共鸣之力 → 收尾领奖 → 每周任务 → 终点。\n\n中间的 Daily_* 节点全是**切点**（DirectHit + DoNothing），本身不干活，只做路由：interface.json 里对应的开关把它的 next 改写到「执行」或「跳过」两个方向。pipeline 里的默认值 = 界面的默认值。\n\n⚠️ 存在感的四类任务（使魔的爱 / 世界那么大 / 战力补强 / 共鸣之力）是**顶层平级的步骤**，不嵌在某个「存在感阶段」里。相应地把「回存在感页 → 一键领取」单独拆成收尾的 Daily_ClaimRewards —— 那是最后一步的事。\n\n不需要额外的「回大厅」阶段：每个阶段的导航链自己会从任意页面把游戏带回目标页。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
-        "next": ["App_Launch"]
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "App_Launch"
+        ]
     },
 
     "App_Launch": {
@@ -17,6 +20,7 @@
             }
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "App_CheckLobby",
             "App_Boot"
         ]
@@ -29,7 +33,10 @@
             "type": "StartApp",
             "param": {"package": "com.miHoYo.HSoDv2Original"}
         },
-        "next": ["App_BootCycle"],
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "App_BootCycle"
+        ],
         "post_delay": 3000
     },
 
@@ -38,6 +45,7 @@
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
         "next": [
+            "[JumpBack]Common_NetWait",
             "App_BootCount",
             "App_BootRestart",
             "App_BootGiveUp"
@@ -49,6 +57,7 @@
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
         "next": [
+            "[JumpBack]Common_NetWait",
             "[JumpBack]Startup_PopupGate",
             "App_CheckLobby",
             "App_TapTitle",
@@ -65,7 +74,10 @@
             "type": "StopApp",
             "param": {"package": "com.miHoYo.HSoDv2Original"}
         },
-        "next": ["App_BootRelaunch"],
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "App_BootRelaunch"
+        ],
         "post_delay": 2000,
         "max_hit": 1
     },
@@ -77,7 +89,10 @@
             "type": "StartApp",
             "param": {"package": "com.miHoYo.HSoDv2Original"}
         },
-        "next": ["App_BootCycle2"],
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "App_BootCycle2"
+        ],
         "post_delay": 3000
     },
 
@@ -86,6 +101,7 @@
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
         "next": [
+            "[JumpBack]Common_NetWait",
             "App_BootCount2",
             "App_BootGiveUp"
         ]
@@ -96,6 +112,7 @@
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
         "next": [
+            "[JumpBack]Common_NetWait",
             "[JumpBack]Startup_PopupGate",
             "App_CheckLobby",
             "App_TapTitle2",
@@ -109,7 +126,10 @@
         "doc": "两次尝试都没能进大厅（网络断了 / 卡在更新 / 模拟器异常）。\n\n**仍然往下走**，让后面的阶段自己失败 —— 日志里能看到后续哪个节点开始报「找不到」，\n比整条任务在启动阶段就中断更好定位是网络问题还是识别问题。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
-        "next": ["Daily_Mail"]
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Daily_Mail"
+        ]
     },
 
     "App_TapTitle": {
@@ -135,7 +155,10 @@
                     400
                 ]}
         },
-        "next": ["App_BootCycle"],
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "App_BootCycle"
+        ],
         "timeout": 2000
     },
 
@@ -162,7 +185,10 @@
                     400
                 ]}
         },
-        "next": ["App_BootCycle2"],
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "App_BootCycle2"
+        ],
         "timeout": 2000
     },
 
@@ -182,7 +208,10 @@
             }
         },
         "action": {"type": "DoNothing", "param": {}},
-        "next": ["App_CleanPopups"],
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "App_CleanPopups"
+        ],
         "timeout": 2000
     },
 
@@ -197,6 +226,7 @@
             }
         },
         "next": [
+            "[JumpBack]Common_NetWait",
             "[JumpBack]Startup_PopupGate",
             "[JumpBack]Common_PopupGate",
             "Daily_Mail"
@@ -207,35 +237,50 @@
         "doc": "切点：邮件领取。Yes→Mail_Entry；No→Daily_Summon。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
-        "next": ["Mail_Entry"]
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Mail_Entry"
+        ]
     },
 
     "Daily_Summon": {
         "doc": "切点：使魔探险（每日任务「星辰的彼方」）。Yes→Summon_Entry；No→**直接接使魔的爱**（不经过存在感页的任何领取动作）。\n\n⚠️ 这里必须用切点，不能直接 override Summon_Entry 的 next —— Summon_Entry 同时是独立任务「仅使魔探险」的入口，改它会把那个任务一起改坏。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
-        "next": ["Summon_Entry"]
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Summon_Entry"
+        ]
     },
 
     "Daily_Stamina": {
         "doc": "切点：体力消耗循环。Yes→Stamina_Entry（其后 Stamina_PhaseDone 接共鸣之力）；No→直接接共鸣之力。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
-        "next": ["Stamina_Entry"]
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Stamina_Entry"
+        ]
     },
 
     "Daily_ClaimRewards": {
         "doc": "切点：收尾领奖。跑完前面所有任务后回存在感页，把这一轮新解锁的里程碑奖励收掉。Yes→ClaimRewards_Entry；No→Daily_Weekly。\n\n排在体力消耗**之后**是有意的：体力消耗产生的存在感也在这一轮里解锁，早领会漏。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
-        "next": ["ClaimRewards_Entry"]
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "ClaimRewards_Entry"
+        ]
     },
 
     "Daily_Weekly": {
         "doc": "切点：每周任务。Yes→Weekly_Entry；No→直接 Daily_Finish。",
         "recognition": {"type": "DirectHit", "param": {}},
         "action": {"type": "DoNothing", "param": {}},
-        "next": ["Weekly_Entry"]
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Weekly_Entry"
+        ]
     },
 
     "Daily_Finish": {
