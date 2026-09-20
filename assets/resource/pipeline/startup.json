@@ -9,7 +9,8 @@
                     "Startup_NoticeClose",
                     "Common_MonthCardClaim",
                     "Common_EventReward",
-                    "Common_MonthCardAnim"
+                    "Common_MonthCardAnim",
+                    "Startup_AdClose"
                 ]
             }
         },
@@ -21,6 +22,7 @@
             "[JumpBack]Common_MonthCardClaim",
             "[JumpBack]Common_MonthCardAnim",
             "[JumpBack]Common_EventReward",
+            "[JumpBack]Startup_AdClose",
             "[JumpBack]Common_NetWait",
             "[JumpBack]Startup_DailyCheckin",
             "[JumpBack]Startup_NoticeClose",
