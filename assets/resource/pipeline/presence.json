@@ -633,17 +633,19 @@
         "timeout": 4000,
         "next": [
             "[JumpBack]Common_NetWait",
-            "Presence_ZhanLiBuQiang_Success"
+            "Presence_ZhanLiBuQiang_Success",
+            "[JumpBack]Common_PopupGate",
+            "Presence_ZhanLiBuQiang_GiveUp"
         ]
     },
     "Presence_ZhanLiBuQiang_Success": {
-        "doc": "购买成功的提示框：「提示 / 购买成功」。点确定 (640,445) 关掉。\n\n这个确定**确实**落在 Common_NoticeConfirm 的 ROI 里，但这里仍然自己点 ——\n购买流程整条都不接通用弹窗节点，保持一致性比省一个节点重要。",
+        "doc": "购买成功的提示框：「提示 / 购买成功」。点确定 (640,445) 关掉。\n\n═══ ✅ 2026-09-20 实测修的 ROI（差点让整条任务炸）═══\n该弹窗实测几何：\n    面板  约 x[392,890] y[218,492]\n    标题「提示」        [602, 232,  75, 41]  score 0.999\n    正文「购买成功」    [429, 295, 104, 33]  score 0.9997\n    按钮「确定」        [602, 426,  74, 41]  score 0.998  → 中心 (639, 446)\n\n⚠️ 原来的 ROI 是 [400, **360**, 480, 60] —— y 360~420，而正文在 y 295~328，\n**整整错开 60px**，本节点**永远匹配不上**。\n后果不只是「弹窗没关」：Confirm.next 当时只有一个候选（本节点），\n它一失配 → **候选全失配 → 整条 Daily_CleanUp 报错终止**（§5.9②）。\n\n点击点 (640,445) 一直是对的 —— 只有识别框错位。已改成 [400,280,480,60]。\n\n═══ 弹窗刚出现的那一刻，通用门控接不住 ═══\n`Common_NoticeConfirm`（ROI [540,430,200,70]，expected 确定）**罩得住这个确定**，\n但当时战力补强整条链都没接 Common_PopupGate —— 故意的，因为「是否购买」弹窗的\n两个按钮也会落进那个 ROI，通用节点点哪个全看 OCR 分数。\n\n现在只在**点完「是否购买 → 购买」之后**才挂通用门控：\n    Confirm.next = [JB Common_NetWait, Success, JB Common_PopupGate, GiveUp]\n那个位置后续只可能出现这种**单按钮**提示框，通用门控点「确定」是安全的；\n而「是否购买」仍在它之前、由本链的专属节点处理，不受影响。\n末尾的 GiveUp 是兜底 —— 防止再出现「唯一候选失配 ⟹ 整条任务炸」。",
         "recognition": {
             "type": "OCR",
             "param": {
                 "roi": [
                     400,
-                    360,
+                    280,
                     480,
                     60
                 ],
