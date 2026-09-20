@@ -719,8 +719,50 @@
         },
         "next": []
     },
+    "Battle_RushTap1": {
+        "doc": "抢进图：按第一个位置 (780,641)。用户要求**一轮之内中间无延迟**，所以 post_delay 为 0。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    780,
+                    641
+                ]
+            }
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Battle_RushTap2"
+        ],
+        "post_delay": 0
+    },
     "Battle_RushTap2": {
-        "doc": "抢进图：按第二个位置 (780,641)。用户要求**一轮之内中间无延迟**，所以 post_delay 为 0。",
+        "doc": "抢进图：按第二个位置 (519,243)，接回 Tap2 组成一轮。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    519,
+                    243
+                ]
+            }
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Battle_RushTap3"
+        ],
+        "post_delay": 0
+    },
+    "Battle_RushTap3": {
+        "doc": "抢进图：按第三位置 (780,641)。用户要求**一轮之内中间无延迟**，所以 post_delay 为 0。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -801,27 +843,6 @@
         "next": [
             "[JumpBack]Common_NetWait",
             "Battle_RushTap1"
-        ],
-        "post_delay": 0
-    },
-    "Battle_RushTap1": {
-        "doc": "抢进图：按第一个位置 (519,243)，接回 Tap2 组成一轮。",
-        "recognition": {
-            "type": "DirectHit",
-            "param": {}
-        },
-        "action": {
-            "type": "Click",
-            "param": {
-                "target": [
-                    519,
-                    243
-                ]
-            }
-        },
-        "next": [
-            "[JumpBack]Common_NetWait",
-            "Battle_RushTap2"
         ],
         "post_delay": 0
     },
