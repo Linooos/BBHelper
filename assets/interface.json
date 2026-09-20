@@ -446,7 +446,7 @@
         // 自定义关卡只是占位 —— 内容待补。
         "关卡来源": {
             "type": "switch",
-            "description": "体力消耗去刷哪个关卡。\n\n预设关卡：从下面的列表里选一个。\n自定义关卡：⬜ 尚未实现。",
+            "description": "体力消耗去刷哪个关卡。\n\n预设关卡：从下面的列表里选一个。\n自定义关卡：⬜ 尚未实现 —— 拨到这边不会消耗任何体力，直接跳过这个阶段。",
             "default_case": "Yes",
             "cases": [
                 {
@@ -459,7 +459,20 @@
                 },
                 {
                     "name": "No",
-                    "label": "自定义关卡（未实现）"
+                    "label": "自定义关卡（未实现）",
+                    // ⚠️ 这个 override **不能省**。
+                    // 省掉的话 Stamina_Entry.next 会退回管线默认值
+                    // ["Stamina_MiaoWang"] —— 用户拨到「未实现」，脚本反而照跑
+                    // 喵王の福利，而且按「体力目标」折算后要消耗约 300 体力。
+                    // 一个标着「未实现」的开关实际会烧体力，对主号是不能接受的。
+                    // 现在它走向 Stamina_NotImplemented：记 skipped、什么都不做。
+                    "pipeline_override": {
+                        "Stamina_Entry": {
+                            "next": [
+                                "Stamina_NotImplemented"
+                            ]
+                        }
+                    }
                 }
             ]
         },

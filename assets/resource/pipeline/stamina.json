@@ -68,6 +68,25 @@
             "Presence_Resonance_Gate"
         ]
     },
+    "Stamina_NotImplemented": {
+        "doc": "「关卡来源 → 自定义关卡（未实现）」的**占位终点**。\n\n═══ 为什么需要这个节点，而不是只在 UI 上标一句「未实现」 ═══\n2026-09-20 发现：自定义那个 case 原本**没有任何 pipeline_override**，于是\nStamina_Entry.next 一直停在管线默认值 [\"Stamina_MiaoWang\"] ——\n**用户把开关拨到「自定义（未实现）」，脚本反而会照跑喵王の福利**。\n\n而 Stamina_Plan 会按「体力目标」折算次数：默认目标 300 ÷ 喵王每次 10\n≈ 刷 30 次 ≈ **消耗 300 体力**。\n\n也就是说，一个写着「未实现」的开关实际会烧掉 300 体力。对主号来说这是必须\n堵掉的洞 —— UI 上的「未实现」不能只是一句标语，行为上也得真的什么都不做。\n\n═══ 行为 ═══\nphase_skip 把「体力消耗」记为 **skipped**（不是 done）——流程正常走过去了，\n但这一步没产生任何实际效果。然后照常交给下一个阶段。\n\n═══ 等自定义功能真做出来 ═══\n把 interface.json 里「关卡来源 → No」那条 case 的 pipeline_override 改成指向\n自定义关卡的入场链即可，本节点到时候删掉。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "phase_skip",
+                "custom_action_param": {
+                    "phase": "体力消耗"
+                }
+            }
+        },
+        "next": [
+            "Presence_Resonance_Gate"
+        ]
+    },
     "Stamina_MiaoWang_Nav": {
         "doc": "**喵王の福利专属**的导航：首页/战斗 → 活动 → 多元裂缝 → 曜日挑战。\n\n⚠️ 这条路径是为「喵王和同在曜日挑战页的关卡」写的。别的关卡如果在\n螺旋回廊 / 虚轴之庭那些页，应该另写一条链，不要硬套这条。",
         "recognition": {
