@@ -93,7 +93,7 @@
         "enabled": false
     },
     "Battle_Again": {
-        "doc": "点结算面板的「再次挑战」(642,618)。\n\n⚠️ 实测它**不是直接开打**，而是回到**助战好友列表**——省掉的是「确定 → 回关卡列表 → 重新点开关卡 → 详情页」这几步（也就省掉了详情页那次双倍券勾选），但「备用装备 → 开战」还要重走。所以 next 接 Battle_PickHelper。\n\nBONUS 关卡才有这个按钮。",
+        "doc": "点结算面板的「再次挑战」(642,618)。\n\n⚠️ 实测它**不是直接开打**，而是回到**助战好友列表**——省掉的是「确定 → 回关卡列表 → 重新点开关卡 → 详情页」这几步（也就省掉了详情页那次双倍券勾选），但「备用装备 → 开战」还要重走。所以 next 接 Battle_PickHelper。\n\nBONUS 关卡才有这个按钮。\n\n═══ ⭐ 2026-09-21：之后也走抢进图 ═══\n用户指出「再次挑战之后也要用三次循环的进入方式」。\n实测「再次挑战」不是直接开打，而是回到**助战好友列表**（见上），\n所以这里接 Battle_RushReset → 抢进图循环。\n\n⚠️ 循环里那两个坐标 (519,243)/(780,641) 是**在关卡详情页量的**。\n助战好友列表的布局不同，可能不适用 —— 不适用的话三轮后会顺延到\nBattle_PickHelper 走老路（不会乱点超过三轮）。",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -113,7 +113,7 @@
             "param": {}
         },
         "next": [
-            "Battle_PickHelper"
+            "Battle_RushReset"
         ],
         "post_delay": 1500,
         "timeout": 3000
@@ -669,7 +669,7 @@
         },
         "next": [
             "[JumpBack]Common_NetWait",
-            "Battle_RushTap2",
+            "Battle_RushReset",
             "Battle_OpenHelperList"
         ],
         "post_delay": 0,
@@ -741,7 +741,7 @@
         "post_delay": 0
     },
     "Battle_RushGate": {
-        "doc": "一轮的汇合点：先看**进图了没**，没进就再来一轮。\n\n候选顺序：\n  1. Battle_RushTopGone  顶部「首页」「其他」都认不到了 ⟹ 进图了 → 开打\n  2. Battle_RushAgain    还认得到 ⟹ 再点一轮\n  3. Battle_OpenHelperList  三轮都没进去 ⟹ 退回老路（慢但稳）",
+        "doc": "一轮的汇合点：先看**进图了没**，没进就再来一轮。\n\n候选顺序：\n  1. Battle_RushTopGone  顶部「首页」「其他」都认不到了 ⟹ 进图了 → 开打\n  2. Battle_RushAgain    还认得到 ⟹ 再点一轮\n  3. Battle_OpenHelperList  三轮都没进去 ⟹ 退回老路（慢但稳）\n\n═══ ⚠️ 末尾 Battle_ClearStage_Done 是必需兜底（§5.12）═══\n前两个候选里：Battle_RushAgain 会被 rush_tick 在跑满三轮后关掉，\nBattle_OpenHelperList / Battle_PickHelper 都是 OCR、可能失配。\n三者同时失配 ⟹ 候选全失配 ⟹ 整条任务报错终止。\n所以链尾必须有恒命中的出口：DirectHit + next:[] 的 Battle_ClearStage_Done。\n\n它意味着「三轮抢进图没进去、老路两个入口也认不出来」—— 这时平静收尾\n比报错终止更合适（报错会把整个日常打断）。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -754,7 +754,9 @@
             "[JumpBack]Common_NetWait",
             "Battle_RushTopGone",
             "Battle_RushAgain",
-            "Battle_OpenHelperList"
+            "Battle_OpenHelperList",
+            "Battle_PickHelper",
+            "Battle_ClearStage_Done"
         ],
         "post_delay": 0,
         "max_hit": 6
@@ -782,21 +784,26 @@
         "timeout": 1500
     },
     "Battle_RushAgain": {
-        "doc": "一轮没进去：回起点再来一轮。\n\n`max_hit: 3` 是用户定的 —— **一轮 = 两个位置各点一次**，最多三轮。\n三轮还进不去 ⟹ 本节点失配 ⟹ Battle_RushGate 顺延到 Battle_OpenHelperList 走老路。\n\n⚠️ max_hit 是整条任务范围累加的，不是每轮重置 —— 同一次运行里后面的轮次\n用不了这个额度。这是 MaaFramework 的既定语义，不是 bug。",
+        "doc": "一轮跑完，回起点再来一轮。\n\n═══ ⚠️ 用 CustomAction 计数，不用 max_hit ═══\n`max_hit` 是整条任务范围累加的、不会重置，拿来当「三轮」的刹车会导致\n**抢进图只能用一次**（后续每一轮额度都是 0）。所以计数放在 Python 里：\n    rush_tick  每轮 +1，到 3 就把本节点 `enabled: false`\n    rush_reset 每个入口先归零并重新打开\n\n本节点被关掉后，Battle_RushGate 的候选会顺延到老路（OpenHelperList / PickHelper）。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
         },
         "action": {
-            "type": "DoNothing",
-            "param": {}
+            "type": "Custom",
+            "param": {
+                "custom_action": "rush_tick",
+                "custom_action_param": {
+                    "hub_node": "Battle_RushAgain",
+                    "rounds": 3
+                }
+            }
         },
         "next": [
             "[JumpBack]Common_NetWait",
             "Battle_RushTap1"
         ],
-        "post_delay": 0,
-        "max_hit": 3
+        "post_delay": 0
     },
     "Battle_RushTap1": {
         "doc": "抢进图：按第一个位置 (519,243)，接回 Tap2 组成一轮。",
@@ -811,6 +818,27 @@
                     519,
                     243
                 ]
+            }
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Battle_RushTap2"
+        ],
+        "post_delay": 0
+    },
+    "Battle_RushReset": {
+        "doc": "⭐ **每个抢进图入口都必须先过这里** —— 把轮次计数归零、并把循环节点重新打开。\n\n═══ 为什么必须有它（用户 2026-09-21 指出漏了再次挑战那条）═══\n「三轮」这个刹车原本用 `max_hit: 3` 实现，但 **max_hit 是整条任务范围累加的**\n（不是每次进入重置）⟹ 第一个 episode 用掉 3 次之后，后面每一轮都是 0\n⟹ 抢进图**只能用一次**。而一次日常要跑几十轮。\n\n所以计数挪到 Python（agent/my_action.py 的 rush_reset / rush_tick），\n每个入口都先调 rush_reset 归零。\n\n⚠️ 漏掉任何一个入口 ⟹ 那个入口之后抢进图永远打不开（上一轮把它关了）。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "rush_reset",
+                "custom_action_param": {
+                    "hub_node": "Battle_RushAgain"
+                }
             }
         },
         "next": [

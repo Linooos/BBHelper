@@ -240,3 +240,61 @@ class PlanStagePageAction(CustomAction):
             _dbg("改写翻页节点失败（按默认跑）: %s" % e)
 
         return True
+
+
+# ── 抢进图的轮次计数 ────────────────────────────────────────────────
+# 为什么需要 Python：`max_hit` 是**整条任务范围累加**的（不是每次进入重置），
+# 拿它当「三轮」的刹车 ⟹ 第一个 episode 用掉 3 次之后，后面每一轮都是 0，
+# 抢进图等于只能用一次。而一次日常要跑几十轮。所以只能在 Python 里自己记数，
+# 每次进入抢进图时归零。
+class _RushState:
+    rounds = 0
+
+
+@AgentServer.custom_action("rush_reset")
+class RushReset(CustomAction):
+    """每次**进入**抢进图时调一次：轮次归零，并把循环节点重新打开。
+
+    必须在每个入口都调（首次进关、以及每次「再次挑战」之后），
+    否则上一轮把循环关掉之后就再也打不开了。
+    """
+
+    def run(self, context: Context, argv: CustomAction.RunArg) -> bool:
+        try:
+            param = json.loads(argv.custom_action_param or "{}") or {}
+            hub = param.get("hub_node", "Battle_RushAgain")
+            _RushState.rounds = 0
+            try:
+                context.override_pipeline({hub: {"enabled": True}})
+            except Exception as e:  # noqa: BLE001
+                _dbg("rush_reset 打开 %s 失败: %s" % (hub, e))
+            _dbg("rush_reset：轮次归零，%s 重新打开" % hub)
+        except Exception as e:  # noqa: BLE001
+            _dbg("rush_reset 异常: %r" % (e,))
+        return True
+
+
+@AgentServer.custom_action("rush_tick")
+class RushTick(CustomAction):
+    """抢进图**每跑完一轮**调一次：计数，到上限就把循环节点关掉。
+
+    关掉之后 Battle_RushGate 的候选会顺延到 Battle_OpenHelperList（老路）。
+    ⚠️ 这里用 enabled 而不是 max_hit —— 见上面 _RushState 的说明。
+    """
+
+    def run(self, context: Context, argv: CustomAction.RunArg) -> bool:
+        try:
+            param = json.loads(argv.custom_action_param or "{}") or {}
+            hub = param.get("hub_node", "Battle_RushAgain")
+            cap = int(param.get("rounds", 3))
+            _RushState.rounds += 1
+            _dbg("rush_tick：第 %d/%d 轮" % (_RushState.rounds, cap))
+            if _RushState.rounds >= cap:
+                try:
+                    context.override_pipeline({hub: {"enabled": False}})
+                except Exception as e:  # noqa: BLE001
+                    _dbg("rush_tick 关掉 %s 失败: %s" % (hub, e))
+                _dbg("rush_tick：已跑满 %d 轮，关掉循环，交给老路" % cap)
+        except Exception as e:  # noqa: BLE001
+            _dbg("rush_tick 异常: %r" % (e,))
+        return True
