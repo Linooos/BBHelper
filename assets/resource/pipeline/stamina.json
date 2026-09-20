@@ -588,7 +588,7 @@
         "post_delay": 2000
     },
     "Stamina_Custom_PagePlan": {
-        "doc": "⭐ **翻页次数折算**：读列表底部的「N / M」，算出要往回点几次、往前进几次。\n\n纯 pipeline 做不到 —— OCR 只能匹配文本、不能拿「2 / 2」做减法，也没法按结果\n决定一个节点跑几次。所以用 CustomAction plan_stage_page（见 agent/my_action.py）。\n\n⚠️ 分页是**滞留**的（实测：退出去再进来还停在上次那页），所以统一\n「先退到第 1 页、再前进 N-1 次」—— 结果只由目标页数决定，与进来时在哪页无关。\n\n「页数」下拉覆盖的就是这里 custom_action_param.target_page。",
+        "doc": "⭐ **翻页次数折算**：读列表底部的「N / M」，算出要往回点几次、往前进几次。\n\n纯 pipeline 做不到 —— OCR 只能匹配文本、不能拿「2 / 2」做减法，也没法按结果\n决定一个节点跑几次。所以用 CustomAction plan_stage_page（见 agent/my_action.py）。\n\n⚠️ 分页是**滞留**的（实测：退出去再进来还停在上次那页），所以统一\n「先退到第 1 页、再前进 N-1 次」—— 结果只由目标页数决定，与进来时在哪页无关。\n\n「页数」下拉覆盖的就是这里 custom_action_param.target_page。\n\n═══ ⚠️ 末尾那个 Stamina_Custom_PickStage 是**必需**的，不是冗余（2026-09-21 修）═══\nplan 算出「后退 0 次、前进 0 次」时会把两个翻页节点都 enabled:false，这时 next 里三个候选全失配 → §5.9② 整条任务断在这（2026-09-21 用户实测）。\n翻页节点被 plan_stage_page 关掉时是**失配**，不是「什么都不做」——\n而 next 候选全失配就会让整条任务报错终止（dev_loop §5.9②）。\n所以链尾要有**恒能命中**的出口。但 PickStage 自己也可能失配（用户没填关卡名时\n它的判据是永不匹配的占位串），所以最后再兜一个 Stamina_GiveUp（DirectHit）。Stamina_Custom_PickStage",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -614,7 +614,9 @@
         "next": [
             "[JumpBack]Common_NetWait",
             "Stamina_Custom_PageBack",
-            "Stamina_Custom_PageFwd"
+            "Stamina_Custom_PageFwd",
+            "Stamina_Custom_PickStage",
+            "Stamina_GiveUp"
         ]
     },
     "Stamina_Custom_PageBack": {
@@ -640,7 +642,7 @@
         "post_delay": 800
     },
     "Stamina_Custom_PageBackGate": {
-        "doc": "往回翻的汇合点。每点一次回到这里重新求值 ⟹ PageBack 的 max_hit 才会累加\n（dev_loop §5.9①：直接自环的话计数器不会推进）。用尽后顺延到下一步。",
+        "doc": "往回翻的汇合点。每点一次回到这里重新求值 ⟹ PageBack 的 max_hit 才会累加\n（dev_loop §5.9①：直接自环的话计数器不会推进）。用尽后顺延到下一步。\n\n═══ ⚠️ 末尾那个 Stamina_Custom_PickStage 是**必需**的，不是冗余（2026-09-21 修）═══\n同理：往回翻用尽后若往前那个也被关掉，候选就全失配了。\n翻页节点被 plan_stage_page 关掉时是**失配**，不是「什么都不做」——\n而 next 候选全失配就会让整条任务报错终止（dev_loop §5.9②）。\n所以链尾要有**恒能命中**的出口。但 PickStage 自己也可能失配（用户没填关卡名时\n它的判据是永不匹配的占位串），所以最后再兜一个 Stamina_GiveUp（DirectHit）。Stamina_Custom_PickStage",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -652,7 +654,9 @@
         "next": [
             "[JumpBack]Common_NetWait",
             "Stamina_Custom_PageBack",
-            "Stamina_Custom_PageFwd"
+            "Stamina_Custom_PageFwd",
+            "Stamina_Custom_PickStage",
+            "Stamina_GiveUp"
         ],
         "post_delay": 300
     },
@@ -691,7 +695,8 @@
         "next": [
             "[JumpBack]Common_NetWait",
             "Stamina_Custom_PageFwd",
-            "Stamina_Custom_PickStage"
+            "Stamina_Custom_PickStage",
+            "Stamina_GiveUp"
         ],
         "post_delay": 300
     },

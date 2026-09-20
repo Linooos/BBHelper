@@ -703,6 +703,54 @@ summon 15 / weekly 2 / common 1），battle.json 精确 5/25 —— 开战、选
 
 ---
 
+## 5.12 `next` 里挂了「可能被关掉/耗尽」的节点时，链尾必须有恒命中兜底 ⚠️
+
+2026-09-21 实机踩到，代价是「体力消耗」整条链断掉。
+
+`Stamina_Custom_PagePlan` 的 next 原本是：
+
+```jsonc
+"next": ["[JumpBack]Common_NetWait",
+         "Stamina_Custom_PageBack",   // 由 plan_stage_page 在运行时决定 enabled
+         "Stamina_Custom_PageFwd"]    // 同上
+```
+
+用户那次「当前页 == 目标页 == 1」⟹ plan 算出「后退 0 次、前进 0 次」
+⟹ **把两个翻页节点都置成 `enabled: false`** ⟹ 三个候选**全部失配**
+⟹ §5.9② 整条任务断在这里。
+
+节点流日志里看得一清二楚（最后一行就是终点）：
+
+```text
+00:26:02  Stamina_Custom_Pick
+00:26:03  Common_OcrBase
+00:26:03  Stamina_Custom_PagePlan     ← 到此为止
+```
+
+### 规矩
+
+**凡是 next 里挂了「运行时可能被 `override_pipeline` 关掉、或 `max_hit` 会耗尽」的节点，
+链尾都必须再挂一个恒能命中的出口**（`DirectHit` 的 GiveUp / 收尾节点）。
+
+⚠️ 而且兜底本身也得**真的恒命中**。这里第一次修只补了 `Stamina_Custom_PickStage`，
+但它的判据是用户填的关卡名 —— 没填时是个永不匹配的占位串 ⟹ 还是接不住。
+最后补的是 `Stamina_GiveUp`（DirectHit）。
+
+### 自查办法
+
+```python
+# 非 JumpBack 候选里一个 DirectHit 都没有 → 有全失配风险，值得人工看一遍
+nodes = {k: v for f in glob("assets/resource/pipeline/*.json") for k, v in json.load(open(f)).items()}
+sus = [(k, [x for x in v["next"] if not x.startswith("[JumpBack]")])
+       for k, v in nodes.items()
+       if v.get("next") and not any(nodes.get(x, {}).get("recognition", {}).get("type") == "DirectHit"
+                                    for x in v["next"] if not x.startswith("[JumpBack]"))]
+```
+
+这个检查很粗（会列出几十个正常链），只能当**线索**用，不是判定。
+
+---
+
 ## 6. 写 pipeline 的几条本项目约定
 
 1. **全部节点用 v2 object 形态**（`recognition: {type, param}` / `action: {type, param}`）。
