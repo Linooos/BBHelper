@@ -44,7 +44,9 @@
                 "any_of": [
                     "Common_DenyList",
                     "Common_TapToDismiss",
-                    "Common_NoticeConfirm"
+                    "Common_NoticeConfirm",
+                    "Common_MonthCardClaim",
+                    "Common_EventReward"
                 ]
             }
         },
@@ -53,6 +55,8 @@
             "param": {}
         },
         "next": [
+            "[JumpBack]Common_MonthCardClaim",
+            "[JumpBack]Common_EventReward",
             "[JumpBack]Common_NetWait",
             "[JumpBack]Common_DenyList",
             "[JumpBack]Common_TapToDismiss",
@@ -153,6 +157,63 @@
         },
         "next": [],
         "timeout": 1500,
+        "max_hit": 200
+    },
+    "Common_MonthCardClaim": {
+        "doc": "**月卡奖励弹窗**：「点击领取月卡奖励」。\n\n═══ 什么时候弹 ═══\n游戏启动时、以及**每天 0 点**（实测 2026-09-21 零点，在关卡详情页上弹出来的）。\n所以它不只在开屏 —— 跑日常跑到一半也可能撞上，**两个门控都挂了它**：\n    Common_PopupGate  （通用，日常流程各处都会调）\n    Startup_PopupGate （开屏循环里只调它）\n\n⚠️ 开屏循环 App_BootCount 的 next 里**只有** Startup_PopupGate、没有 Common_PopupGate\n—— 所以只挂后者的话，开屏那一刻弹出来就没人管。这就是两边都要挂的原因。\n\n═══ 几何（2026-09-21 实机实测）═══\n    「点击领取月卡奖励」  [556, 562, 168, 26]  score 0.9999  → 中心 (640,575)\n**按钮文字本身就是识别框**，所以 action 不写 target、直接点识别框中心 —— 位置自动跟随。\n\n⚠️ 同一屏的「月卡礼包剩余：29天」实测和底下的「选择助战好友」**粘成了一个 OCR 框**\n（[544,623,264,41]，score 0.909）—— 不能拿它当判据。用上面那句按钮文案。\n\n═══ ⚠️ 必须点两下（2026-09-21 实测）═══\n第一下点「点击领取月卡奖励」→ 领取成功，**但吼姆动画不会自己消失**\n（实测等了 14 秒还在），得再点一下才关。第二下点掉的瞬间会露出**第三个弹窗**\n「提示 / 主人！以下未领取的活动奖励已经送达背包啦~ / 确定」，由 Common_EventReward 接手。\n\n所以整串是**三连**：领取 → 点掉动画 → 点确定。\n第二下是盲点的（同一个坐标），但那个位置在详情页上是空白区，\n万一动画提前自消失也不会误触。\n\n用 repeat 而不是「再写一个带判据的节点」，是因为**没有可靠的判据**：\n动画里唯一新增的文字是「+60」，数字每天不同；\n而「月卡礼包剩余：29天」在两个状态下都在，区分不了。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    530,
+                    550,
+                    220,
+                    50
+                ],
+                "expected": [
+                    "点击领取月卡奖励"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [],
+        "post_delay": 1200,
+        "timeout": 2500,
+        "max_hit": 200,
+        "repeat": 2,
+        "repeat_delay": 2500
+    },
+    "Common_EventReward": {
+        "doc": "**活动奖励送达提示**：「主人！以下未领取的活动奖励已经送达背包啦~」+「确定」。\n\n它是月卡领取那一串的**第三步**：\n    点「点击领取月卡奖励」→ 领取成功\n    → 再点一下 → 吼姆动画关掉，**本弹窗露出来**\n    → 点「确定」→ 回到原来的页面\n\n═══ 判据用长句，不用「确定」 ═══\n「确定」太泛（通用门控里的 Common_NoticeConfirm 就是认它）。\n这里用这句独有的正文，实测 score 0.991。\n\n═══ 几何（2026-09-21 实测）═══\n    正文 [422, 267, 434, 26]  score 0.991\n    确定 [608, 465,  62, 36]  score 0.9988  → 中心 (639,483)\n「确定」不在正文框里，所以点击点写死。\n\n═══ 两个门控都挂了它 ═══\n和月卡弹窗一样，它可能出现在开屏、也可能出现在跑日常的途中（0点）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    400,
+                    255,
+                    480,
+                    50
+                ],
+                "expected": [
+                    "以下未领取的活动奖励"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    639,
+                    483
+                ]
+            }
+        },
+        "next": [],
+        "post_delay": 1000,
+        "timeout": 2500,
         "max_hit": 200
     }
 }
