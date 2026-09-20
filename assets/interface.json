@@ -69,20 +69,21 @@
     //     还躺着一份**陈旧副本** —— 插件跑的是它，所以 Custom 节点全找不到。
     //     副本删掉后就变成路径直接不存在了。
     //
-    //  ⚠️ 发布产物由 tools/install.py 另行写入（那边 agent/ 与 interface.json
-    //     平级，路径形态不同），不要指望这一块被直接带过去。
+    //  ⚠️ 发布产物由 tools/install.py 另行写入 —— 那边写的是
+    //     `./python/python.exe`（包内**自带**的绿色 python，见
+    //     tools/setup_embed_python.py），与这里的 venv 全路径形态不同，
+    //     不要指望这一块被直接带过去。
+    //
+    //  ⚠️ 这里写**全路径**，不要图省事写 "python"。
+    //     写上 "python" 就是把「用哪个 python」外包给 PATH，而 PATH 的第一位
+    //     随时可能变成另一个没装 maafw、或者装了**版本不对**的 python。
+    //     2026-09-20 这个坑在发布产物上炸过一次（用户机器上没有我们的 venv），
+    //     所以才有了「把 python 打进包里」这件事。
     // ════════════════════════════════════════════════════════════════
-    // vscode 里调试时用本机 venv 的 python，发布产物里用随包的 agent/main.py。
-    // "agent": {
-    //     "child_exec": "{PROJECT_DIR}/../.venv/Scripts/python.exe",
-    //     "child_args": [
-    //         "{PROJECT_DIR}/../agent/main.py"
-    //     ]
-    // },
     "agent": {
-        "child_exec": "python",
+        "child_exec": "{PROJECT_DIR}/../.venv/Scripts/python.exe",
         "child_args": [
-            "./agent/main.py"
+            "{PROJECT_DIR}/../agent/main.py"
         ]
     },
     "task": [

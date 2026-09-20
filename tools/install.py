@@ -121,16 +121,19 @@ def install_resource():
     # Agent 块：发布产物**必须**有，否则所有 CustomRecognition / CustomAction
     # 节点都会失效（实测报 Action is null）。
     #
-    # 路径用 {PROJECT_DIR}/agent/main.py —— install_agent() 会把 agent/ 拷到
-    # install/agent/，与 interface.json 平级，而插件的 {PROJECT_DIR} 就是
-    # interface.json 所在目录，正好对上。
+    # child_exec 指向**包内自带**的 python（setup_embed_python 装出来的），
+    # 不用 PATH 上那个 —— 理由见 tools/setup_embed_python.py 的模块注释。
     #
-    # ⚠️ child_exec 这里留 "python"（假定运行环境 PATH 上有）：开发机上没有
-    # 系统 python，所以 assets/interface.json 里那份用的是项目 venv 的绝对路径，
-    # 两边的形态本来就不同、不能互相照抄。
+    # 路径用 `./`：实测 MFAAvalonia 以包根为 CWD 启动子进程，
+    # `./agent/main.py` 解析得到（2026-09-20 的 Protocol version mismatch 日志
+    # 就是 agent 已经跑起来的证据）。resource 那种 `{PROJECT_DIR}` 变量在
+    # agent 路径上**没有**实测支持，别拿它换 `./`。
+    #
+    # `-u` = 不缓冲 stdout，否则 agent 的报错会卡在缓冲区里，
+    # 拿不到「agent 到底为什么起不来」这条最关键的线索。
     interface["agent"] = {
-        "child_exec": "python",
-        "child_args": ["{PROJECT_DIR}/agent/main.py"],
+        "child_exec": "./python/python.exe",
+        "child_args": ["-u", "./agent/main.py"],
     }
 
     with open(install_path / "interface.json", "w", encoding="utf-8") as f:
@@ -153,7 +156,24 @@ def install_agent():
         working_dir / "agent",
         install_path / "agent",
         dirs_exist_ok=True,
+        # __pycache__ 是开发机上别的 python 版本编的，带过去只会误导；
+        # debug/ 是 agent/my_action.py 的调试日志，属于本机运行痕迹，不该外发。
+        ignore=shutil.ignore_patterns("__pycache__", "debug", "*.pyc"),
     )
+
+
+def install_python():
+    """把一份装了 maafw 的绿色 python 装到 install/python/。
+
+    ⚠️ 放在 install_agent() **之后**：setup_embed_python 会读
+    agent/requirements.txt，虽然读的是源目录，但先拷过去更不容易搞混。
+
+    可重复执行 —— 版本对得上就跳过，所以第二次打包几乎是瞬时的。
+    """
+    sys.path.insert(0, str(Path(__file__).parent.resolve()))
+    import setup_embed_python
+
+    setup_embed_python.setup()
 
 
 if __name__ == "__main__":
@@ -161,5 +181,6 @@ if __name__ == "__main__":
     install_resource()
     install_chores()
     install_agent()
+    install_python()
 
     print(f"Install to {install_path} successfully.")

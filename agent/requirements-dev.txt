@@ -1,0 +1,12 @@
+# Agent 运行期依赖 —— **开发期**用这份（VS Code 的 Maa Pipeline Support 插件）。
+#
+# 发布产物不要用这份，见同目录的 requirements.txt 与它的说明。
+#
+# 为什么开发期是另一个版本：插件用**它自带的**那份 MaaFramework 当客户端：
+#     <globalStorage>/nekosu.maa-support/native/install/<版本>/
+# 客户端与 agent 的协议号必须一致，否则静默拒连。
+#
+# ⚠️ 插件升级自带框架后，这里要跟着改，然后重装 venv：
+#     ls "$HOME/AppData/Roaming/Code/User/globalStorage/nekosu.maa-support/native/install/"
+#     uv pip install --python .venv/Scripts/python.exe -r agent/requirements-dev.txt
+maafw==5.12.2

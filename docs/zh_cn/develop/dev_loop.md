@@ -227,17 +227,64 @@ uv pip install --python .venv/Scripts/python.exe "maafw==<上面列出的版本>
 ### 发布产物需要 `agent` 块
 
 MFAAvalonia 靠它启动 AgentServer。由 `tools/install.py` 在打包时写入
-（`install_resource` 里，与改写 `version` 放在一起）。发布布局下 `agent/` 与
-interface.json **平级**，所以那边不需要 `../`：
+（`install_resource` 里，与改写 `version` 放在一起）：
 
 ```python
 interface["agent"] = {
-    "child_exec": "python",
-    "child_args": ["{PROJECT_DIR}/agent/main.py"],
+    "child_exec": "./python/python.exe",
+    "child_args": ["-u", "./agent/main.py"],
 }
 ```
 
-> 两边形态本来就不同，**不能互相照抄**。
+#### ⭐ 发布产物自带一份 python（`install/python/`）
+
+`child_exec` 指向的是**包内**那个绿色 python，不是 PATH 上的 ——
+由 `tools/setup_embed_python.py` 装出来，`install.py` 会自动调它。
+
+之前写的是裸的 `"python"`，意思是「去 PATH 上找一个」。这条假设**在用户机器上
+不成立**，而且会用两种方式炸：
+
+1. PATH 上那个 python **没装 maafw** ⟹ agent 启动即 `ModuleNotFoundError`，
+   所有 `Custom*` 节点全废（`Action is null`）。
+2. PATH 上那个 python **装了，但版本不对** ⟹ 就是上面那个静默的
+   `Protocol version mismatch`，更难查。
+
+自带一份之后，「用哪个 python」这个变量就从发布链路里消失了。
+顺带把 dev/release 的版本冲突也解开了 —— 两边各用各的 python，见 §4.5 三。
+
+实现要点（照抄 MAA1999 / MaaStellaSora 的做法）：
+
+| 步骤 | 说明 |
+| --- | --- |
+| 下载 | 官方 embeddable zip，`python-3.12.10-embed-amd64.zip`（约 11MB） |
+| 改 `._pth` | **必须**：取消注释 `import site`，补 `Lib\site-packages`。不改的话 pip 看着成功、`import maa` 照样失败 |
+| 装 pip | 官方 `get-pip.py`（embeddable 包不带 pip） |
+| 装依赖 | `pip install -r agent/requirements.txt` |
+
+> `maafw` 的 wheel 是 `py3-none-win_amd64`（纯 ABI 无关），装进 embeddable 没问题。
+> 它依赖 `numpy` / `maaagentbinary`，所以包会涨到 ~100MB 量级。
+> `numpy` 有 cp3XX 版本限制 —— 换 `PYTHON_VERSION` 前先确认它有对应 wheel。
+
+#### 为什么 `./` 能用
+
+实测 MFAAvalonia 以包根为 CWD 启动子进程，`./agent/main.py` 解析得到。
+证据是 2026-09-20 那次失败日志：报错的是 AgentServer.cpp 里的
+`Protocol version mismatch` —— **agent 已经跑起来了**，只是协议对不上。
+
+⚠️ `resource[].path` 那种 `{PROJECT_DIR}` 变量在 agent 路径上**没有**实测支持，
+别拿它换 `./`。同理 `assets/interface.json` 里那份用 `{PROJECT_DIR}/../.venv/...`
+是**插件**的规则，两边形态本来就不同，**不能互相照抄**。
+
+#### 打包后怎么验
+
+包里那个 python 是独立可跑的，不用开 MFAAvalonia：
+
+```bash
+install/python/python.exe -c "import maa, importlib.metadata as m; print(m.version('maafw'))"
+install/python/python.exe -m py_compile install/agent/main.py
+```
+
+版本对不上时 `install.py` 自己会报（`setup_embed_python` 装完会复核一遍）。
 
 ---
 

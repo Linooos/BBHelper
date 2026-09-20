@@ -94,15 +94,23 @@ python tools/show_state.py 2026-09-20 # 指定日期
 ## 开发
 
 ```bash
-# 依赖（版本必须与 MaaFramework 对齐，见 agent/requirements.txt 的说明）
-uv pip install --python .venv/Scripts/python.exe -r agent/requirements.txt
+# 依赖（版本必须与「调用方的 MaaFramework」对齐，见 agent/requirements-dev.txt
+# 的说明 —— 开发期和发布期的钉版本**故意不同**，别混用）
+uv pip install --python .venv/Scripts/python.exe -r agent/requirements-dev.txt
 
 # 命令行跑一条任务（会打印每个节点的识别结果）
 .venv/Scripts/python.exe tools/dev_run.py Daily_CleanUp
 .venv/Scripts/python.exe tools/dev_run.py --list-only   # 只列已注册的 Custom*
 
-# 打包
+# 打包（首次会联网拉一份绿色 python 和依赖，约 100MB，之后走缓存）
 python tools/install.py v0.1.0 win x86_64
+```
+
+打包产物**自带 python**，用户不用装任何运行环境。这一步由
+`tools/setup_embed_python.py` 完成，`install.py` 会自动调它；要单独重装：
+
+```bash
+python tools/setup_embed_python.py --force
 ```
 
 调试中踩过的坑都在 [docs/zh_cn/develop/dev_loop.md](./docs/zh_cn/develop/dev_loop.md)，
