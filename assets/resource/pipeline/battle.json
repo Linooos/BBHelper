@@ -53,7 +53,7 @@
             "Battle_Again",
             "Battle_Confirm",
             "Battle_DetailTicket",
-            "Battle_OpenHelperList",
+            "Battle_RushEntry",
             "Battle_PickHelper",
             "Battle_PickStage"
         ]
@@ -165,7 +165,7 @@
         },
         "next": [
             "Battle_DetailTicket",
-            "Battle_OpenHelperList",
+            "Battle_RushEntry",
             "Battle_PickHelper"
         ],
         "post_delay": 1200,
@@ -199,7 +199,7 @@
             }
         },
         "next": [
-            "Battle_OpenHelperList",
+            "Battle_RushEntry",
             "Battle_PickHelper"
         ],
         "post_delay": 600,
@@ -641,5 +641,121 @@
             "param": {}
         },
         "next": []
+    },
+    "Battle_RushEntry": {
+        "doc": "⭐ **抢进图**（2026-09-20 用户提出）：在关卡详情页**连点两个位置**直接进关，\n不再走「选择助战好友 → 备用装备 → 开战 → 等 HP」那四次识别。\n\n═══ 为什么能省 ═══\n实测在详情页反复按这两个位置就会一路进关：\n    (519,243)   ← rel (0.40546875, 0.3375)\n    (780,641)   ← rel (0.609375,  0.8902777...)\n坐标是用户按**屏幕比例**给的，换算到 1280×720 得来。\n\n═══ 本节点只负责「起动」 ═══\n判据是详情页独有的「选择助战好友」—— 命中才进循环，所以在别的页面不会乱按。\n循环体在 Battle_RushLoop。\n\n⚠️ 兜底：循环次数用尽仍没进图，就退回**老的** Battle_OpenHelperList 那条路\n（四次识别虽然慢，但稳）。不能没有兜底 —— 否则循环一失败整条任务报错（§5.9②）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    640,
+                    628,
+                    240,
+                    52
+                ],
+                "expected": [
+                    "选择助战好友"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    519,
+                    243
+                ]
+            }
+        },
+        "next": [
+            "Battle_RushLoop",
+            "Battle_OpenHelperList"
+        ],
+        "post_delay": 300,
+        "timeout": 2000
+    },
+    "Battle_RushLoop": {
+        "doc": "抢进图的循环汇合点。每轮：先看「选择助战好友」还在不在，不在就是进图了，跳出开打；\n还在就继续按。\n\n`max_hit: 20` 是刹车 —— 按了 20 轮还没进去说明这条路走不通，\n让调用方顺延到 Battle_OpenHelperList 走老路。\n\n每轮 post_delay 只有 200ms：这一段就是要快。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Battle_ArrowGone",
+            "Battle_RushTap2"
+        ],
+        "post_delay": 200,
+        "max_hit": 20
+    },
+    "Battle_RushTap2": {
+        "doc": "抢进图：按第二个位置 (780,641)。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    780,
+                    641
+                ]
+            }
+        },
+        "next": [
+            "Battle_RushTap1"
+        ],
+        "post_delay": 250
+    },
+    "Battle_RushTap1": {
+        "doc": "抢进图：按第一个位置 (519,243)，然后回到循环汇合点重新判定。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    519,
+                    243
+                ]
+            }
+        },
+        "next": [
+            "Battle_RushLoop"
+        ],
+        "post_delay": 250
+    },
+    "Battle_ArrowGone": {
+        "doc": "**进图判定**：`inverse` 反转 OCR —— 「选择助战好友」**不在**了就算进图。\n\n═══ 为什么不用左上角箭头 ═══\n用户想看的是「左上角返回箭头消失」，但那个箭头是**纯图形、OCR 读不到**。\n详情页底部那行「选择助战好友」是**文字**，而且和箭头同生共死（都是详情页专属）\n—— 用它做判据效果一样，还能被 OCR 稳定读到。\n\n═══ ⚠️ inverse 的坑（schema 原文）═══\n「由此识别出的节点，Click 等动作的点击自身将失效（因为实际并没有识别到东西）」\n所以本节点只能是 DoNothing，不能让它点自己。要跳转靠 next。\n\n═══ ⚠️ 只能在详情页进这个节点 ═══\ninverse 意味着**任何**没有这行字的页面都会命中，包括关卡列表。\n它只能由 Battle_RushLoop 到达，而 RushLoop 只能由 Battle_RushEntry（详情页判据）\n到达 —— 这个前提不能破。别把它挂到别处去。\n\n命中即接 Battle_StickDown：立刻「向右 + 按住攻击」，不等 HP 图标。",
+        "inverse": true,
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    640,
+                    628,
+                    240,
+                    52
+                ],
+                "expected": [
+                    "选择助战好友"
+                ]
+            }
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Battle_StickDown"
+        ],
+        "post_delay": 100,
+        "timeout": 1500
     }
 }
