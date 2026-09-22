@@ -360,17 +360,5 @@
             "[JumpBack]Common_NetWait",
             "Battle_PickStage"
         ]
-    },
-    "Config_StaminaPolicy": {
-        "doc": "**「体力不足处理策略」任务的入口节点 —— 它是个空壳。**\n\n这个任务不执行任何操作，存在的唯一理由是：\n界面「体力不足时」「用双倍体力兑换」这两个选项是 **global_option**，\n它们对**所有任务**生效（日常清理、通用通关都吃这套策略）——\n但如果只在 global_option 里登记，任务列表里就**完全看不见**它们，\n用户会以为「这套策略只属于通用通关」✗（用户 2026-09-22 的反馈）。\n\n所以单开这个任务条目当**配置入口**，跑它本身什么都不会发生。",
-        "recognition": {
-            "type": "DirectHit",
-            "param": {}
-        },
-        "action": {
-            "type": "DoNothing",
-            "param": {}
-        },
-        "next": []
     }
 }
