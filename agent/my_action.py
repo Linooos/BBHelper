@@ -1,6 +1,8 @@
+import glob
 import json
 import math
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -312,6 +314,52 @@ ABI_TARGET = " x86"     # 注意前导空格，原脚本就是这么写的
 ABI_POS = 49            # ABI 的起始列（1-based）
 ABI_HASH_POS = 67       # 注释 # 的起始列
 MUMU_MANAGER = r"C:\Program Files\Netease\MuMu\nx_main\MuMuManager.exe"
+# 真机黑名单（与 tools/dev_run.py 一致）—— 万一 adb devices 里出现这些序列号，绝不碰
+REAL_DEVICE_MARKERS = ("PJZ110", "f34e7c1e")
+
+
+def _find_adb() -> str:
+    """在磁盘上找 MuMu 自带的 adb（版本号那层目录用通配，不写死 15.0）。
+
+    ⚠️ 这里**不能**用 `maa.toolkit.Toolkit.find_adb_devices()` ——
+    AgentServer 子进程里 Toolkit 不可用（见 FixAbiConfigAction 的说明）。
+    """
+    for pat in (
+        r"C:\Program Files\Netease\MuMu\nx_main\adb.exe",
+        r"C:\Program Files\Netease\MuMu\nx_device\*\shell\adb.exe",
+    ):
+        for hit in sorted(glob.glob(pat), reverse=True):
+            if Path(hit).exists():
+                return hit
+    return shutil.which("adb") or ""
+
+
+def _pick_loopback_device(adb: str) -> str:
+    """从 `adb devices` 里挑出模拟器那条（`127.0.0.1:xxxx`）。
+
+    ⚠️ **只认 loopback** —— 真机的序列号是硬件串号（或局域网 IP），
+    结构上就进不来这一条。这是「绝不碰真机」这条红线在这里的实现方式。
+    """
+    if not adb:
+        return ""
+    try:
+        r = subprocess.run([adb, "devices"], capture_output=True, timeout=20)
+    except Exception as e:  # noqa: BLE001
+        _dbg("adb devices 跑不起来: %r" % (e,))
+        return ""
+    out = (r.stdout or b"").decode("utf-8", "ignore")
+    for ln in out.splitlines()[1:]:
+        parts = ln.split()
+        if len(parts) < 2 or parts[1] != "device":
+            continue
+        serial = parts[0]
+        if not serial.startswith("127.0.0.1:"):
+            continue
+        if any(m in serial for m in REAL_DEVICE_MARKERS):
+            continue
+        return serial
+    _dbg("adb devices 里没有可用的 loopback 设备:\n%s" % out)
+    return ""
 
 
 @AgentServer.custom_action("fix_abi_config")
@@ -328,8 +376,12 @@ class FixAbiConfigAction(CustomAction):
     custom_action_param:
         remote        配置文件远端路径
         prompt_node   需要手动重启时打开哪个节点（带 focus 通知）
-        target_index  模拟器实例编号；不传则按 adb 端口换算
+        target_index  模拟器实例编号；不传就取控制器 info 里的，再不行按端口换算
         restart       false = 只改文件不重启（调试用）
+        adb / address 手工指定 adb 路径 / 设备地址（默认自动解析）
+
+    ⚠️ 设备信息**不能**用 `maa.toolkit.Toolkit` —— AgentServer 子进程里它不可用，
+    发行版上必炸。详见 `_resolve_device` 的注释。
     """
 
     def run(self, context: Context, argv: CustomAction.RunArg) -> bool:
@@ -370,24 +422,75 @@ class FixAbiConfigAction(CustomAction):
         except Exception as e:  # noqa: BLE001
             _dbg("打开提示节点 %s 失败: %s" % (node, e))
 
-    def _run(self, context: Context, argv) -> None:
-        from maa.toolkit import Toolkit
+    def _resolve_device(self, context, p) -> tuple[str, str, int, str]:
+        """拿到 (adb 路径, 设备地址, MuMu 实例号, MuMuManager 路径)。
 
+        ═══ ⚠️ 为什么不能用 maa.toolkit.Toolkit ═══
+        这里原来是 `Toolkit.find_adb_devices()`，在**开发机**上跑得好好的，
+        但在**发行版**里必炸 —— AgentServer 子进程里 Toolkit 不可用：
+
+            ValueError: Toolkit is not available in AgentServer context.
+              maa/library.py:134 in toolkit
+              maa/toolkit.py:314 in _assign_api_properties
+
+        2026-09-22 用户在打包版上实测：界面弹「配置修改过程出错」，
+        agent 日志里是这个 traceback（debug/stamina_plan.log）。
+
+        改成两条路，第一条不通就走第二条：
+          1. 问**当前连着的控制器** —— `context.tasker.controller.info`
+             实测返回：{"adb_path": "...nx_main/adb.exe",
+                       "adb_serial": "127.0.0.1:16384",
+                       "config": {"extras": {"mumu": {"index": 0,
+                                                      "path": "C:/Program Files/Netease/MuMu"}}}}
+             ⟹ adb 路径、地址、**MuMu 实例号**全都有了（实例号连端口换算都省了）
+          2. 问不到就自己找：磁盘上的 MuMu adb + `adb devices` 里的 loopback 那条
+             （第 2 条只认 127.0.0.1:xxxx ⟹ 真机天然排除，见 _pick_loopback_device）
+        """
+        adb = str(p.get("adb") or "")
+        addr = str(p.get("address") or "")
+        index = p.get("target_index")
+        manager = MUMU_MANAGER
+
+        if not (adb and addr):
+            try:
+                info = context.tasker.controller.info or {}
+                adb = adb or str(info.get("adb_path") or "")
+                addr = addr or str(info.get("adb_serial") or "")
+                mumu = ((info.get("config") or {}).get("extras") or {}).get("mumu") or {}
+                if index is None and mumu.get("index") is not None:
+                    index = int(mumu["index"])
+                root = str(mumu.get("path") or "")
+                if root:
+                    cand = Path(root) / "nx_main" / "MuMuManager.exe"
+                    if cand.exists():
+                        manager = str(cand)
+                _dbg("控制器 info: adb=%r addr=%r index=%r" % (adb, addr, index))
+            except Exception as e:  # noqa: BLE001
+                _dbg("读控制器 info 失败（改走磁盘查找）: %r" % (e,))
+
+        if not adb:
+            adb = _find_adb()
+            _dbg("磁盘上找到 adb: %r" % adb)
+        if not addr:
+            addr = _pick_loopback_device(adb)
+            _dbg("adb devices 选中: %r" % addr)
+        if not adb or not addr:
+            raise RuntimeError("拿不到 adb 路径 / 设备地址（adb=%r addr=%r）" % (adb, addr))
+
+        if index is None:
+            try:
+                index = max(0, (int(addr.rsplit(":", 1)[-1]) - 16384) // 32)
+            except Exception:  # noqa: BLE001
+                index = 0
+        return adb, addr, int(index), manager
+
+    def _run(self, context: Context, argv) -> None:
         p = self._param(argv)
         remote = p.get("remote", ABI_REMOTE_DEFAULT)
         do_restart = bool(p.get("restart", True))
 
-        devs = Toolkit.find_adb_devices()
-        # 真机绝不碰（同 tools/dev_run.py 的排除规则）
-        safe = [
-            d for d in devs
-            if not any(m in str(getattr(d, "name", "")) for m in ("PJZ110", "f34e7c1e"))
-        ]
-        if not safe:
-            raise RuntimeError("没有可用的 ADB 设备（只找到真机或一个都没有）")
-        dev = safe[0]
-        adb, addr = str(dev.adb_path), str(dev.address)
-        _dbg("设备 %s @ %s" % (getattr(dev, "name", "?"), addr))
+        adb, addr, mumu_index, manager = self._resolve_device(context, p)
+        _dbg("设备 %s（MuMu 实例 %s）" % (addr, mumu_index))
 
         tmp = _DEBUG_LOG.parent / "abi-select.config"
         tmp.parent.mkdir(parents=True, exist_ok=True)
@@ -427,7 +530,11 @@ class FixAbiConfigAction(CustomAction):
             raise RuntimeError("从这一行里解析不出 ABI：%r" % old_line)
         _dbg("当前 ABI: %r" % old_abi)
 
-        if old_abi == ABI_TARGET:
+        # ⚠️ 必须**去掉空格**再比：ABI_TARGET 带前导空格（原脚本就这么写的），
+        #    而 split() 出来的 parts[1] 没有 ⟹ 直接 `old_abi == ABI_TARGET`
+        #    永远为假，已经改好的机器也会被重写一遍、白重启一次模拟器。
+        #    2026-09-22 实测踩到（第二次跑仍然「已写入」）。
+        if old_abi.strip() == ABI_TARGET.strip():
             _dbg("已经是 %r，无需修改，也不必重启" % ABI_TARGET)
             tmp.unlink(missing_ok=True)
             return
@@ -460,18 +567,13 @@ class FixAbiConfigAction(CustomAction):
             return
 
         # 最后一步：重启模拟器（会掐断 ADB，之后控制器失效 —— 所以放在最后）
-        mi = p.get("target_index")
-        if mi is None:
-            try:
-                mi = max(0, (int(addr.rsplit(":", 1)[-1]) - 16384) // 32)
-            except Exception:  # noqa: BLE001
-                mi = 0
-        if not Path(MUMU_MANAGER).exists():
-            self._prompt(context, argv, "找不到 MuMuManager.exe")
+        mi = mumu_index
+        if not Path(manager).exists():
+            self._prompt(context, argv, "找不到 MuMuManager.exe（%s）" % manager)
             return
         try:
             rr = subprocess.run(
-                [MUMU_MANAGER, "control", "--vmindex", str(mi), "restart"],
+                [manager, "control", "--vmindex", str(mi), "restart"],
                 capture_output=True, timeout=90,
             )
         except Exception as e:  # noqa: BLE001

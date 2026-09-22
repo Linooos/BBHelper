@@ -903,3 +903,43 @@ Battle_PickHelper → Battle_StartBattle → Battle_WaitLoaded → Battle_Fight
 逐个问「处理完弹窗、回到正常状态之后，**这个列表里第一个会命中的是谁**」。
 `enabled: false` 和 `[JumpBack]` 候选都不算「保证不命中」，
 真正决定走向的是**顺延到的第一个恒命中/大概率命中节点**。
+
+## 5.14 Agent 子进程里**没有** `Toolkit` ⚠️
+
+`maa.toolkit.Toolkit`（`find_adb_devices` / `find_desktop_windows`）只能在**普通进程**里用。
+AgentServer 子进程里调用必抛：
+
+```
+ValueError: Toolkit is not available in AgentServer context.
+  maa/library.py:134 in toolkit
+  maa/toolkit.py:314 in _assign_api_properties
+```
+
+2026-09-22 在**发行版**上炸的（`修复 x86 架构配置` 任务，界面弹「配置修改过程出错」）。
+开发机上一直没暴露，是因为那边从来没用 Agent 进程跑过这个动作。
+
+**要用设备信息，走 `context.tasker.controller.info`**（实测返回）：
+
+```json
+{"adb_path": "C:/Program Files/Netease/MuMu/nx_main/adb.exe",
+ "adb_serial": "127.0.0.1:16384",
+ "config": {"extras": {"mumu": {"enable": true, "index": 0,
+                                "path": "C:/Program Files/Netease/MuMu"}}},
+ "type": "adb"}
+```
+
+adb 路径、设备地址都有了；**MuMu 实例号也在里面**（`config.extras.mumu.index`），
+连「按端口 16384+32n 换算实例号」那套都不用做了。
+
+⚠️ 同一个版本里 `Controller.post_shell()` 也是坏的 —— ctypes 没声明 argtypes，
+一调就 `OverflowError: int too long to convert`。所以设备上读写文件还是用
+`subprocess` 调 adb pull/push（顺带：Git Bash 里要是手敲这些命令，记得
+`MSYS_NO_PATHCONV=1`，否则 `/data/...` 会被改写成 `C:/Program Files/Git/data/...`）。
+
+### 顺带：`" x86"` 带前导空格，别拿它跟 `split()` 的结果直接比
+
+同一个动作里还有第二个坑（也是 2026-09-22 实测的）：
+ABI 字段值写的是 `" x86"`（前导空格，照抄原 PowerShell 脚本），
+而 `old_line.split()[1]` 出来的是 `"x86"` ⟹ `old == ABI_TARGET` **永远为假**
+⟹ 已经改好的机器也会被重写一遍、白重启一次模拟器。
+比之前先 `.strip()`。
