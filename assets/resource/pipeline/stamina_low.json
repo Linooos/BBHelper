@@ -360,17 +360,5 @@
             "[JumpBack]Common_NetWait",
             "Battle_PickStage"
         ]
-    },
-    "Config_GlobalSettings": {
-        "doc": "**「全局设置」任务的入口 —— 空壳，跑它什么都不会发生。**\n\n它存在的唯一理由：把两个 **global_option**（体力不足时 / 用双倍体力兑换）\n露在界面的任务列表里，让用户找得到、改得到。\n\n⚠️ 那两个选项**不需要跑任何任务就会生效**（用默认值，或者你在界面上改过的值）——\n它们登记在 global_option 上，对所有任务的 pipeline_override 都参与。\n所以「开不开这个任务」跟策略是否生效无关。",
-        "recognition": {
-            "type": "DirectHit",
-            "param": {}
-        },
-        "action": {
-            "type": "DoNothing",
-            "param": {}
-        },
-        "next": []
     }
 }
