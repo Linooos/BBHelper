@@ -873,3 +873,33 @@ sus = [(k, [x for x in v["next"] if not x.startswith("[JumpBack]")])
 
 ⚠️ 而且**同一段逻辑里别只改一半** —— 我改了 `RushAgain` 却漏了 `RushGate`，
 结果修完之后换了个地方以同样的方式炸。
+
+## 5.13 `[JumpBack]` 返回后是「顺延」，不是「回到正轨」⚠️
+
+`[JumpBack]处理弹窗` 这类子程序跑完之后，调用方**只是把自己的 next 列表重新求值一遍**
+（自己的识别不重跑，§5.9①），然后**从第一个候选继续往下顺延**。
+所以「弹窗处理完之后该干什么」必须**显式写在那个列表里**，而且要写在**老路前面** ——
+否则往下第一个命中者是谁就干什么。
+
+2026-09-22 实机踩到（`debug/maafw.log` 15:51:17 那次运行，用户报「兑换完体力之后走的是老进关方式」）：
+
+```
+Battle_PickStage
+Battle_NeedStamina          ← 详情页是「补充体力」，点开
+Common_StaminaGate          ← 门控
+Common_StaminaExchange      ← 认到「主人可兑换」，点「兑换」，体力补上
+  ↓ jumpback_stack pop → 回到 NeedStamina 重新求值
+  ├ Common_StaminaGate      ✗（窗没了，5 个 OCR 全空）
+  └ Battle_OpenHelperList   ✓「选择助战好友」0.999932   ← ✗✗ 老路从这里进来
+Battle_PickHelper → Battle_StartBattle → Battle_WaitLoaded → Battle_Fight
+```
+
+`Battle_NeedStamina.next` 原本是
+`[NetWait, Gate, **OpenHelperList**, PickStage, Done]` —— 漏了抢进图那条链，
+于是「体力补上了、该按新方式进图」变成了「按老方式进图」。
+（`Round` / `DetailTicket` / `PickStage` 三处候选列表里都写了 `Battle_RushEntry`，只有它自己漏了。）
+
+**自查办法**：列出所有挂 `[JumpBack]常见弹窗/门控` 的节点，
+逐个问「处理完弹窗、回到正常状态之后，**这个列表里第一个会命中的是谁**」。
+`enabled: false` 和 `[JumpBack]` 候选都不算「保证不命中」，
+真正决定走向的是**顺延到的第一个恒命中/大概率命中节点**。

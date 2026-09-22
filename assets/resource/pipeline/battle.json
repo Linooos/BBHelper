@@ -873,7 +873,7 @@
         "post_delay": 0
     },
     "Battle_NeedStamina": {
-        "doc": "⭐ **详情页的「补充体力」按钮** —— 体力不够时，原本的「选择助战好友」\n会**整个换成**这个按钮（不是弹窗！2026-09-22 实测）。\n\n所以它是 Battle_OpenHelperList 的**平级候选**（两者互斥：要么有体力显示\n「选择助战好友」，要么没体力显示「补充体力」），挂在同样的三个候选列表里。\n\n点它会依次弹「兑换双倍体力」「补充体力」两个窗 —— 和结算页点「再次挑战」\n一模一样（用户确认），所以直接交给 Common_StaminaGate 处理。\n\n处理完之后：如果是走水晶/双倍补上的，体力够了 ⟹ 重试 Battle_OpenHelperList；\n如果是走邮件那套，链尾自己会回 Battle_PickStage。末尾挂 Done 是恒命中兜底（§5.12）。\n\n═══ ⚠️ 必须排在 Battle_RushEntry 之前（2026-09-22）═══\n体力不足时，详情页上**两个文字同时存在**：\n    「消耗体力 50」—— 变成红字，但 OCR 照样读得到（实测 0.939）\n    「补充体力」  —— 按钮从「选择助战好友」换成的\n而 Battle_RushEntry 的判据就是「消耗体力」⟹ 排在它后面的话，\nRushEntry 会先命中、带着 0 体力去抢进图，永远打不成。\n所以三个候选列表里都把它插在 RushEntry **前面**。",
+        "doc": "⭐ **详情页的「补充体力」按钮** —— 体力不够时，原本的「选择助战好友」\n会**整个换成**这个按钮（不是弹窗！2026-09-22 实测）。\n\n所以它是 Battle_OpenHelperList 的**平级候选**（两者互斥：要么有体力显示\n「选择助战好友」，要么没体力显示「补充体力」），挂在同样的三个候选列表里。\n\n点它会依次弹「兑换双倍体力」「补充体力」两个窗 —— 和结算页点「再次挑战」\n一模一样（用户确认），所以直接交给 Common_StaminaGate 处理。\n\n处理完之后：如果是走水晶/双倍补上的，体力够了 ⟹ 走**抢进图**（Battle_RushEntry）；\n如果是走邮件那套，链尾自己会回 Battle_PickStage。末尾挂 Done 是恒命中兜底（§5.12）。\n\n═══ ⚠️ next 里必须有 Battle_RushEntry（2026-09-22 补）═══\n原来这条 next 是 [NetWait, Gate, **OpenHelperList**, PickStage, Done] —— 漏了抢进图。\n实测（debug/maafw.log 15:51:17 那次运行）：\n    NeedStamina → Gate → Exchange（点「兑换」，体力补上）\n    → 回到 NeedStamina 重新求值 → Gate ✗（窗没了）\n    → **OpenHelperList ✓**「选择助战好友」0.9999 ⟹ 走了「助战好友→备用装备→开战」老路\n用户报的「兑换 / 领体力之后用的是老进关方式」就是它。\n\n机制：门控的 [JumpBack] 返回后**只是重新求值 next 列表**（调用方自己的识别不重跑），\n往下顺延的第一个命中者是谁就走谁 —— 所以「弹窗处理完之后的正常进关方式」\n必须显式排在老路**前面**。\n（另外三处候选列表 Round / DetailTicket / PickStage 里都有 RushEntry，只有这里漏了。）\n\n═══ ⚠️ 必须排在 Battle_RushEntry 之前（2026-09-22）═══\n体力不足时，详情页上**两个文字同时存在**：\n    「消耗体力 50」—— 变成红字，但 OCR 照样读得到（实测 0.939）\n    「补充体力」  —— 按钮从「选择助战好友」换成的\n而 Battle_RushEntry 的判据就是「消耗体力」⟹ 排在它后面的话，\nRushEntry 会先命中、带着 0 体力去抢进图，永远打不成。\n所以三个候选列表里都把它插在 RushEntry **前面**。",
         "recognition": {
             "type": "OCR",
             "param": {
@@ -900,6 +900,7 @@
         "next": [
             "[JumpBack]Common_NetWait",
             "[JumpBack]Common_StaminaGate",
+            "Battle_RushEntry",
             "Battle_OpenHelperList",
             "Battle_PickStage",
             "Battle_ClearStage_Done"
