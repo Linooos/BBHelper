@@ -697,7 +697,7 @@ summon 15 / weekly 2 / common 1），battle.json 精确 5/25 —— 开战、选
 ### 相关
 
 `startup.json` 里的 `Startup_ConnectingWait` 是同一件事，但当年**刻意关掉了**
-（`enabled: false`）—— 因为接进启动门控会让门控自旋、把「启动超时 120 秒」
+（`enabled: false`）—— 因为接进启动门控会让门控自旋、把「进大厅超时 120 秒」
 悄悄变成 270 秒。这里的形态不同：刹车挂在自旋体自己身上、不占用任何外层计数器，
 所以那个副作用不存在。
 
