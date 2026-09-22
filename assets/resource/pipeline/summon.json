@@ -119,7 +119,7 @@
         "timeout": 4000
     },
     "Summon_Loop": {
-        "doc": "循环体：每轮先清弹窗，再领一条。列表里每个「探索完成」的条目右侧都有「点击领取奖励」，OCR 会同时命中多条，MaaFramework 取最优的一条点击。ROI 覆盖整个右侧按钮列（列表可滚动，留了较大纵向余量）。",
+        "doc": "循环体：每轮先清弹窗，再领一条。列表里每个「探索完成」的条目右侧都有「点击领取奖励」，OCR 会同时命中多条，MaaFramework 取最优的一条点击。ROI 覆盖整个右侧按钮列（列表可滚动，留了较大纵向余量）。\n\n═══ ⚠️ 「出发」不在本循环的候选里（2026-09-22 修）═══\n本循环原来把 Summon_Accept_Depart（出发）也列成了候选，于是它能**绕过**\n一键派遣被单独命中：\n    Accept_Click → [AutoAssign, PopupGate, Loop]\n    AutoAssign 失配（面板还没画好）→ 回 Loop → Claim ✗ → Accept_Click ✗\n    → AutoAssign ✗ → **Depart ✓** ⟹ 没配使魔就点出发 ⟹ 出发不了\n用户实测就是这个现象。\n\n现在「出发」**只**接在 Summon_Accept_AutoAssign.next 后面 —— 先一键派遣、\n配齐使魔，才可能走到出发。AutoAssign 认不出来时会一路顺延到 Summon_Settle，\n平静收尾，而不是盲点出发。",
         "recognition": {
             "type": "DirectHit",
             "param": {}
@@ -134,7 +134,6 @@
             "Summon_Claim",
             "Summon_Accept_Click",
             "Summon_Accept_AutoAssign",
-            "Summon_Accept_Depart",
             "Summon_Settle"
         ],
         "max_hit": 40
