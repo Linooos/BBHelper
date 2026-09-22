@@ -1,0 +1,364 @@
+{
+    "Common_StaminaGate": {
+        "doc": "⭐ **体力不足门控**。挂在两个地方：\n  1. 结算页点「再次挑战」之后（Battle_Again.next）\n  2. 详情页按钮变成「补充体力」之后（Battle_NeedStamina.next）\n\n两处**都会**依次弹两个窗（2026-09-22 实测）：先「兑换双倍体力」、再「补充体力」。\n所以门控跟 Common_PopupGate 同构 —— 循环处理，处理完一个回来看下一个。\n\n处理顺序（同一个 next 列表内失配会顺延）：\n  兑换双倍体力: 用双倍=Yes → 点「兑换」 / 用双倍=No → 点「取消」（让下一个弹出来）\n  补充体力:     用邮件 → 取消+走邮件链 / 用水晶 → 点「购买」 / 都不 → 取消+归零刷关次数\n\n⚠️ 三个分支的动作不同，所以是**三个独立节点**，靠界面上「体力不足时」那个\n下拉框开关来保证同时只有一个 enabled。\n⚠️ 判据只用**正文**那句：标题「兑换双倍体力」实测被读成繁体「兌换」✗（0.920），\n按钮「兑换」更是只有 0.772 ✗ —— 而且正文两句都好读（0.996 ✓）。",
+        "recognition": {
+            "type": "Or",
+            "param": {
+                "any_of": [
+                    "Common_StaminaExchange",
+                    "Common_StaminaExchangeCancel",
+                    "Common_StaminaBuyMail",
+                    "Common_StaminaBuyCrystal",
+                    "Common_StaminaBuyNone"
+                ]
+            }
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_StaminaExchange",
+            "[JumpBack]Common_StaminaExchangeCancel",
+            "[JumpBack]Common_StaminaBuyMail",
+            "[JumpBack]Common_StaminaBuyCrystal",
+            "[JumpBack]Common_StaminaBuyNone",
+            "Common_StaminaNone"
+        ],
+        "max_hit": 20
+    },
+    "Common_StaminaNone": {
+        "doc": "门控兜底终点：没什么要处理的。恒命中 + next:[] = 子程序结束、返回调用方。\n⚠️ 只能由门控下降进入，别当普通 next 成员用（那会终止整条任务）。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": []
+    },
+    "Common_StaminaExchange": {
+        "doc": "「兑换双倍体力」→ 点「兑换」。界面「用双倍体力兑换」= Yes 时启用。\n\n实测换算：双倍体力 1:2（94 双倍 → 188 普通）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    420,
+                    290,
+                    440,
+                    55
+                ],
+                "expected": [
+                    "主人可兑换"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    532,
+                    457
+                ]
+            }
+        },
+        "next": [],
+        "post_delay": 1200,
+        "timeout": 2500,
+        "max_hit": 20
+    },
+    "Common_StaminaExchangeCancel": {
+        "doc": "「兑换双倍体力」→ 点「取消」。界面「用双倍体力兑换」= No 时启用。\n\n⚠️ 必须点掉它：取消之后游戏才会弹后面的「补充体力」窗。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    420,
+                    290,
+                    440,
+                    55
+                ],
+                "expected": [
+                    "主人可兑换"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    746,
+                    457
+                ]
+            }
+        },
+        "next": [],
+        "post_delay": 1200,
+        "timeout": 2500,
+        "max_hit": 20,
+        "enabled": false
+    },
+    "Common_StaminaBuyMail": {
+        "doc": "「补充体力」→ 点「取消」→ 走邮件链去领体力。界面选「用邮件体力」时启用。\n\n不花水晶，改去邮件页点「体力领取」。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    420,
+                    290,
+                    440,
+                    55
+                ],
+                "expected": [
+                    "主人可花费"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    746,
+                    457
+                ]
+            }
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Common_StaminaMail"
+        ],
+        "post_delay": 1200,
+        "timeout": 2500,
+        "max_hit": 20
+    },
+    "Common_StaminaBuyCrystal": {
+        "doc": "「补充体力」→ 点「购买」。界面选「用水晶购买」时启用。\n\n⚡ 实测花 60 水晶补满体力 —— 消耗氪金资源，所以界面默认**不选**这一项。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    420,
+                    290,
+                    440,
+                    55
+                ],
+                "expected": [
+                    "主人可花费"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    532,
+                    457
+                ]
+            }
+        },
+        "next": [],
+        "post_delay": 1500,
+        "timeout": 2500,
+        "max_hit": 20,
+        "enabled": false
+    },
+    "Common_StaminaBuyNone": {
+        "doc": "「补充体力」→ 点「取消」→ **把刷关次数归零**、结束本次通用通关。\n界面选「什么都不做」时启用。\n\n归零由 CustomAction stop_stage_runs 做（max_hit 设 0）—— 之后\nBattle_ClearStage_Cycle 会顺延到 Battle_ClearStage_Finish 收尾。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    420,
+                    290,
+                    440,
+                    55
+                ],
+                "expected": [
+                    "主人可花费"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {
+                "target": [
+                    746,
+                    457
+                ]
+            }
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Common_StopStageRuns"
+        ],
+        "post_delay": 1200,
+        "timeout": 2500,
+        "max_hit": 20,
+        "enabled": false
+    },
+    "Common_StopStageRuns": {
+        "doc": "把 Battle_ClearStage_Count.max_hit 归零 ⟹ 本轮不再刷，走 Finish 收尾。\n归零后 next 接 Battle_ClearStage_Cycle，让流程自己走完收尾（比直接终止干净）。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "stop_stage_runs",
+                "custom_action_param": {
+                    "count_node": "Battle_ClearStage_Count"
+                }
+            }
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Battle_ClearStage_Cycle"
+        ],
+        "post_delay": 300
+    },
+    "Common_StaminaMail": {
+        "doc": "邮件领体力的固定路径（用户 2026-09-22 给的路）：\n    社交 → 我的消息 → 体力领取 → 顶部「战斗」→ Battle_PickStage\n\n⚠️ 最后**不点返回**：用户实测点完「体力领取」直接点顶部「战斗」标签就回去了\n（因为战斗页有滞留，回去的还是原来那个关卡列表）。\n\n⚠️ 全程**不写死关卡信息** —— 回关卡列表后靠 Battle_PickStage，\n而它的关卡名/坐标是界面「关卡定位」灌进来的，这是唯一的参数来源。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Common_StaminaMail_Social"
+        ]
+    },
+    "Common_StaminaMail_Social": {
+        "doc": "导航 1/4：点顶部「社交」。ROI 与 Mail_Nav01Social 一致（实测过）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    600,
+                    40,
+                    680,
+                    70
+                ],
+                "expected": [
+                    "社交"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Common_StaminaMail_Msg",
+            "Common_StaminaMail_Fail"
+        ],
+        "post_delay": 1200,
+        "timeout": 4000
+    },
+    "Common_StaminaMail_Msg": {
+        "doc": "导航 2/4：点社交页的「我的消息」（邮件）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    590,
+                    310,
+                    240,
+                    62
+                ],
+                "expected": [
+                    "我的消息"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Common_StaminaMail_Claim",
+            "Common_StaminaMail_Fail"
+        ],
+        "post_delay": 1200,
+        "timeout": 4000
+    },
+    "Common_StaminaMail_Claim": {
+        "doc": "导航 3/4：点邮件页的「体力领取」。\n\n⚠️ ROI 与 Mail_ClaimStamina 一致，锁死在按钮本身（这个文件里任何节点都不许\n碰到旁边的「一键删除」）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    880,
+                    118,
+                    130,
+                    52
+                ],
+                "expected": [
+                    "体力领取"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Common_StaminaMail_BackBattle",
+            "Common_StaminaMail_Fail"
+        ],
+        "post_delay": 1200,
+        "timeout": 4000
+    },
+    "Common_StaminaMail_BackBattle": {
+        "doc": "导航 4/4：点顶部「战斗」回去 —— 战斗页有滞留，回去就是原来那个关卡列表。\n然后交给 Battle_PickStage（关卡名/坐标来自界面「关卡定位」）。",
+        "recognition": {
+            "type": "OCR",
+            "param": {
+                "roi": [
+                    720,
+                    20,
+                    120,
+                    110
+                ],
+                "expected": [
+                    "战斗"
+                ]
+            }
+        },
+        "action": {
+            "type": "Click",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Battle_PickStage",
+            "Common_StaminaMail_Fail"
+        ],
+        "post_delay": 1500,
+        "timeout": 4000
+    },
+    "Common_StaminaMail_Fail": {
+        "doc": "邮件链没走通：平静收尾（交给 Battle_PickStage 让它自己判定，失配就自然结束）。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "Battle_PickStage"
+        ]
+    }
+}

@@ -483,3 +483,29 @@ class FixAbiConfigAction(CustomAction):
             self._prompt(context, argv, "MuMuManager 重启失败（返回 %d）" % rr.returncode)
         else:
             _dbg("已发出重启指令（实例 %s），配置将在模拟器重启后生效" % mi)
+
+
+@AgentServer.custom_action("stop_stage_runs")
+class StopStageRuns(CustomAction):
+    """把刷关次数归零 —— 体力不足、又选了「什么都不做」时用。
+
+    归零（max_hit: 0）之后 Battle_ClearStage_Count 永远失配，
+    Battle_ClearStage_Cycle 会自然顺延到 Battle_ClearStage_Finish 收尾，
+    整个通用通关任务就干净地结束了。
+
+    ⚠️ 为什么不能用 pipeline_override 静态写死：那是**条件触发**的
+    （只有「体力不足 + 什么都不做」这一种情况才归零），静态覆盖做不到。
+
+    custom_action_param:
+        count_node  要归零的计数节点，默认 Battle_ClearStage_Count
+    """
+
+    def run(self, context: Context, argv: CustomAction.RunArg) -> bool:
+        try:
+            param = json.loads(argv.custom_action_param or "{}") or {}
+            node = param.get("count_node", "Battle_ClearStage_Count")
+            context.override_pipeline({node: {"max_hit": 0}})
+            _dbg("stop_stage_runs：把 %s.max_hit 归零，本轮到此为止" % node)
+        except Exception as e:  # noqa: BLE001
+            _dbg("stop_stage_runs 失败: %r" % (e,))
+        return True

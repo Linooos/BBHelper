@@ -86,6 +86,12 @@
             "{PROJECT_DIR}/../agent/main.py"
         ]
     },
+    // ⚠️ 这两个是**全局选项**（global_option）：对所有任务生效，
+    //    它们在别处没有出现，只在 option 里定义 + 在 global_option 里登记。
+    "global_option": [
+        "体力不足时",
+        "用双倍体力兑换"
+    ],
     "task": [
         {
             "name": "日常清理",
@@ -129,6 +135,89 @@
         // max_hit = 秒数 ÷ 2：启动循环里 post_delay 是 2000ms。
         // 两次尝试各有一个独立的计数节点（理由见 entry.json 的 App_BootCycle doc：
         // max_hit 是整条任务范围的，重启游戏不会清零），所以这里要一起覆盖。
+        "体力不足时": {
+            "type": "select",
+            "description": "刷关时**体力不够**了怎么办。\n\n脚本会按这一项处理弹出来的「补充体力」窗（水晶兑换那个）：\n  用邮件体力   → 点「取消」，然后去邮件页点「体力领取」拿体力，回来接着刷\n  用水晶购买   → 点「购买」，花水晶补满体力\n  什么都不做   → 点「取消」，把本次剩余的刷关次数**归零**、结束这次通用通关\n\n⚠️ 水晶是氪金资源，所以默认走邮件那条（免费）。\n⚠️ 走邮件那条要求你账号里有带体力的邮件；没有的话领不到，链尾会自然结束。",
+            "default_case": "用邮件体力",
+            "cases": [
+                {
+                    "name": "用邮件体力",
+                    "label": "去邮件领体力（推荐）",
+                    "pipeline_override": {
+                        "Common_StaminaBuyMail": {
+                            "enabled": true
+                        },
+                        "Common_StaminaBuyCrystal": {
+                            "enabled": false
+                        },
+                        "Common_StaminaBuyNone": {
+                            "enabled": false
+                        }
+                    }
+                },
+                {
+                    "name": "用水晶购买",
+                    "label": "花水晶补满（⚡ 消耗水晶）",
+                    "pipeline_override": {
+                        "Common_StaminaBuyMail": {
+                            "enabled": false
+                        },
+                        "Common_StaminaBuyCrystal": {
+                            "enabled": true
+                        },
+                        "Common_StaminaBuyNone": {
+                            "enabled": false
+                        }
+                    }
+                },
+                {
+                    "name": "什么都不做",
+                    "label": "不补了，结束本次刷关",
+                    "pipeline_override": {
+                        "Common_StaminaBuyMail": {
+                            "enabled": false
+                        },
+                        "Common_StaminaBuyCrystal": {
+                            "enabled": false
+                        },
+                        "Common_StaminaBuyNone": {
+                            "enabled": true
+                        }
+                    }
+                }
+            ]
+        },
+        "用双倍体力兑换": {
+            "type": "switch",
+            "description": "体力不够时，游戏会先弹一个「兑换双倍体力」窗（双倍体力按 **1:2** 换成普通体力）。\n\n打开（默认）：点「兑换」，把双倍体力用掉。\n关闭：点「取消」，不用双倍体力 —— 接着会弹「补充体力」窗，由上面那项决定怎么办。\n\n⚡ 双倍体力是消耗品。它本来就是拿来兑换的，所以默认开着。",
+            "default_case": "Yes",
+            "cases": [
+                {
+                    "name": "Yes",
+                    "label": "兑换（用双倍体力）",
+                    "pipeline_override": {
+                        "Common_StaminaExchange": {
+                            "enabled": true
+                        },
+                        "Common_StaminaExchangeCancel": {
+                            "enabled": false
+                        }
+                    }
+                },
+                {
+                    "name": "No",
+                    "label": "不兑换，直接取消",
+                    "pipeline_override": {
+                        "Common_StaminaExchange": {
+                            "enabled": false
+                        },
+                        "Common_StaminaExchangeCancel": {
+                            "enabled": true
+                        }
+                    }
+                }
+            ]
+        },
         "进大厅超时": {
             "type": "select",
             "description": "等游戏进入大厅**最多等多久**。\n\n等超过这个时间还没进大厅，就**强停游戏、重新拉起**再等一轮",
