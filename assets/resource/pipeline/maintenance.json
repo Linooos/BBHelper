@@ -1,0 +1,66 @@
+{
+    "Config_FixAbi": {
+        "doc": "**修复 x86 架构配置**（移植自用户的 PowerShell 脚本 adb修改x86文件一键脚本对齐字符.ps1）。\n\n干的事：pull 出 MuMu 的 ABI 选择配置 → 把游戏那一行改成 x86、按固定列对齐\n→ push 回去 → **重启模拟器**生效。具体逻辑全在 CustomAction fix_abi_config\n（agent/my_action.py），本节点只负责调它。\n\n═══ ⚠️ 它不只是点屏幕 ═══\n改的是模拟器**系统分区里的文件**（/data/system/etc/mumu-configs/…），\n而且最后会重启模拟器 —— 那是**断掉 ADB、控制器失效**的操作，\n所以放在这条链的最后一步，之后本任务立刻结束。\n\n═══ 为什么要有 Config_ManualRestartPrompt 这个候选 ═══\n自动重启失败时（找不到 MuMuManager / 调用报错 / 整个流程出异常），\nCustomAction 会把它 enabled 打开 ⟹ 它命中 ⟹ 界面弹提示让用户手动重启。\n不这么做的话失败是**静默**的：用户以为改好了，实际没生效。\n\n⚠️ 末尾的 Config_FixAbiDone（DirectHit）是恒命中兜底（§5.12）——\n提示节点默认关着，两个都不中就靠它收尾，否则候选全失配会报错。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "Custom",
+            "param": {
+                "custom_action": "fix_abi_config",
+                "custom_action_param": {
+                    "prompt_node": "Config_ManualRestartPrompt"
+                }
+            }
+        },
+        "next": [
+            "Config_ManualRestartPrompt",
+            "Config_FixAbiDone"
+        ],
+        "focus": {
+            "Node.Action.Succeeded": {
+                "content": "x86 配置任务已执行完毕，详情见日志。",
+                "display": [
+                    "log"
+                ]
+            }
+        }
+    },
+    "Config_ManualRestartPrompt": {
+        "doc": "**手动重启提示**（默认 enabled: false，由 fix_abi_config 按需打开）。\n\n命中时靠 `focus` 在界面上弹一条通知 —— 这是 MaaFramework 给 UI 发消息的\n机制（schema 里叫「节点通知」），`display: [\"log\", \"toast\"]` 让它同时进日志和弹窗。\n\n正文里那句是**通用兜底**；实际运行时 fix_abi_config 会用 override_pipeline\n把具体原因写进 content（比如「MuMuManager 重启失败」）。\n\n⚠️ 本节点只提示、不点击 —— 手动重启这件事只能人来做。",
+        "enabled": false,
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "Config_FixAbiDone"
+        ],
+        "focus": {
+            "Node.Recognition.Succeeded": {
+                "content": "⚠️ x86 配置任务需要你处理：请手动重启模拟器，否则设置不生效。",
+                "display": [
+                    "log",
+                    "toast"
+                ]
+            }
+        }
+    },
+    "Config_FixAbiDone": {
+        "doc": "收尾终点。`next: []` = 本任务结束（它是入口的直接后继，不处在 [JumpBack] 边界内）。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": []
+    }
+}

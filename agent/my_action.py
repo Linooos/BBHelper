@@ -1,6 +1,7 @@
 import json
 import math
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -298,3 +299,187 @@ class RushTick(CustomAction):
         except Exception as e:  # noqa: BLE001
             _dbg("rush_tick 异常: %r" % (e,))
         return True
+
+
+# ── 对齐 MuMu 的 ABI 配置文件（移植自用户那份 PowerShell 脚本）────────────
+# 原脚本：C:\Users\...\SelfDocument\Shared\bb\adb修改x86文件一键脚本对齐字符.ps1
+# 干的事：pull 出 MuMu 的 ABI 选择配置 → 把游戏那一行的 ABI 改成 x86、
+#         按固定列对齐 → push 回去 → 重启模拟器生效。
+ABI_REMOTE_DEFAULT = "/data/system/etc/mumu-configs/abi-select-android12.config"
+# 配置文件里「应用」那一栏**本身就是正则**，所以点是转义的 —— 照抄原脚本
+ABI_PKG = r"com\.miHoYo\.HSoDv2Original"
+ABI_TARGET = " x86"     # 注意前导空格，原脚本就是这么写的
+ABI_POS = 49            # ABI 的起始列（1-based）
+ABI_HASH_POS = 67       # 注释 # 的起始列
+MUMU_MANAGER = r"C:\Program Files\Netease\MuMu\nx_main\MuMuManager.exe"
+
+
+@AgentServer.custom_action("fix_abi_config")
+class FixAbiConfigAction(CustomAction):
+    """把游戏的运行架构改成 x86（对齐 MuMu 的 ABI 配置文件）。
+
+    ⚠️ 这是**直接改模拟器系统分区里的文件**，原脚本就是这么干的。
+    改完必须重启模拟器才生效 —— 所以本动作最后一步是重启。
+
+    ⚠️ 重启会把 ADB 连接掐断，MaaFramework 的控制器随之失效。所以：
+      · 重启是**最后一步**，之后本任务立刻结束
+      · 这一步失败也不报错，而是打开界面提示节点让用户手动重启
+
+    custom_action_param:
+        remote        配置文件远端路径
+        prompt_node   需要手动重启时打开哪个节点（带 focus 通知）
+        target_index  模拟器实例编号；不传则按 adb 端口换算
+        restart       false = 只改文件不重启（调试用）
+    """
+
+    def run(self, context: Context, argv: CustomAction.RunArg) -> bool:
+        try:
+            self._run(context, argv)
+        except Exception as e:  # noqa: BLE001
+            import traceback
+
+            _dbg("fix_abi_config 异常: %r\n%s" % (e, traceback.format_exc()))
+            # 出任何意外都让用户来处理 —— 不要静默收工
+            self._prompt(context, argv, "配置修改过程出错")
+        return True
+
+    # ---------- 内部 ----------
+
+    def _param(self, argv) -> dict:
+        return json.loads(argv.custom_action_param or "{}") or {}
+
+    def _prompt(self, context: Context, argv, why: str) -> None:
+        """打开界面提示节点（它带 focus 通知，会在 UI 上弹出来）。"""
+        node = self._param(argv).get("prompt_node", "Config_ManualRestartPrompt")
+        _dbg("需要用户手动重启：%s" % why)
+        try:
+            context.override_pipeline(
+                {
+                    node: {
+                        "enabled": True,
+                        # 顺带把原因写进通知正文 —— 提示节点上写死的那句是通用兜底
+                        "focus": {
+                            "Node.Recognition.Succeeded": {
+                                "content": "⚠️ x86 配置任务需要你处理（%s）。请手动重启模拟器，否则设置不生效。" % why,
+                                "display": ["log", "toast"],
+                            }
+                        },
+                    }
+                }
+            )
+        except Exception as e:  # noqa: BLE001
+            _dbg("打开提示节点 %s 失败: %s" % (node, e))
+
+    def _run(self, context: Context, argv) -> None:
+        from maa.toolkit import Toolkit
+
+        p = self._param(argv)
+        remote = p.get("remote", ABI_REMOTE_DEFAULT)
+        do_restart = bool(p.get("restart", True))
+
+        devs = Toolkit.find_adb_devices()
+        # 真机绝不碰（同 tools/dev_run.py 的排除规则）
+        safe = [
+            d for d in devs
+            if not any(m in str(getattr(d, "name", "")) for m in ("PJZ110", "f34e7c1e"))
+        ]
+        if not safe:
+            raise RuntimeError("没有可用的 ADB 设备（只找到真机或一个都没有）")
+        dev = safe[0]
+        adb, addr = str(dev.adb_path), str(dev.address)
+        _dbg("设备 %s @ %s" % (getattr(dev, "name", "?"), addr))
+
+        tmp = _DEBUG_LOG.parent / "abi-select.config"
+        tmp.parent.mkdir(parents=True, exist_ok=True)
+
+        def run_adb(*args, timeout=20):
+            return subprocess.run([adb, "-s", addr, *args], capture_output=True, timeout=timeout)
+
+        # [1/4] pull
+        run_adb("connect", addr)
+        r = run_adb("pull", remote, str(tmp))
+        if r.returncode != 0:
+            _dbg("pull 失败，重启 adb 再试一次: %s" % r.stderr[:200])
+            subprocess.run([adb, "kill-server"], capture_output=True, timeout=20)
+            subprocess.run([adb, "start-server"], capture_output=True, timeout=30)
+            run_adb("connect", addr)
+            r = run_adb("pull", remote, str(tmp))
+            if r.returncode != 0:
+                raise RuntimeError("pull 配置文件失败：%s" % r.stderr[:200])
+
+        # [2/4] 找行（newline="" 保留原始换行符，push 回去时不会把 LF 变成 CRLF）
+        with tmp.open("r", encoding="utf-8", errors="surrogateescape", newline="") as f:
+            lines = f.read().split("\n")
+        # ⚠️ ABI_PKG 里**反斜杠是字面字符**（配置文件就这么写的，点是转义的）。
+        # 所以必须用 re.escape 找**字面串** —— 直接拿它当正则会去找真的点，一行都匹配不到。
+        # 2026-09-22 实测踩过：pull 下来 178 行，这个正则命中 0 行。
+        idx = [i for i, ln in enumerate(lines) if re.search(re.escape(ABI_PKG), ln)]
+        if not idx:
+            raise RuntimeError("配置里找不到 %s" % ABI_PKG)
+        i = idx[0]
+        old_line = lines[i]
+        _dbg("原行: %r" % old_line)
+
+        # [3/4] 改行（列对齐算法**照抄原脚本**，包括它的 max(…) 边界）
+        parts = old_line.split()
+        old_abi = parts[1] if len(parts) > 1 else ""
+        if not old_abi:
+            raise RuntimeError("从这一行里解析不出 ABI：%r" % old_line)
+        _dbg("当前 ABI: %r" % old_abi)
+
+        if old_abi == ABI_TARGET:
+            _dbg("已经是 %r，无需修改，也不必重启" % ABI_TARGET)
+            tmp.unlink(missing_ok=True)
+            return
+
+        m = re.search(r"\s+(#.*)$", old_line)
+        comment = m.group(1) if m else ""
+        pkg_space = ABI_PKG + " "
+        prefix = pkg_space + " " * max(0, ABI_POS - 1 - len(pkg_space)) + ABI_TARGET
+        new_line = prefix + " " * max(1, ABI_HASH_POS - len(prefix)) + comment
+        _dbg("新行: %r" % new_line)
+        lines[i] = new_line + ("\r" if old_line.endswith("\r") else "")
+        with tmp.open("w", encoding="utf-8", errors="surrogateescape", newline="") as f:
+            f.write("\n".join(lines))
+
+        # [4/4] push
+        r = run_adb("push", str(tmp), remote)
+        if r.returncode != 0:
+            _dbg("push 失败，重启 adb 再试一次: %s" % r.stderr[:200])
+            subprocess.run([adb, "kill-server"], capture_output=True, timeout=20)
+            subprocess.run([adb, "start-server"], capture_output=True, timeout=30)
+            run_adb("connect", addr)
+            r = run_adb("push", str(tmp), remote)
+            if r.returncode != 0:
+                raise RuntimeError("push 配置文件失败：%s" % r.stderr[:200])
+        tmp.unlink(missing_ok=True)
+        _dbg("已写入 %s" % remote)
+
+        if not do_restart:
+            _dbg("restart=false，跳过重启")
+            return
+
+        # 最后一步：重启模拟器（会掐断 ADB，之后控制器失效 —— 所以放在最后）
+        mi = p.get("target_index")
+        if mi is None:
+            try:
+                mi = max(0, (int(addr.rsplit(":", 1)[-1]) - 16384) // 32)
+            except Exception:  # noqa: BLE001
+                mi = 0
+        if not Path(MUMU_MANAGER).exists():
+            self._prompt(context, argv, "找不到 MuMuManager.exe")
+            return
+        try:
+            rr = subprocess.run(
+                [MUMU_MANAGER, "control", "--vmindex", str(mi), "restart"],
+                capture_output=True, timeout=90,
+            )
+        except Exception as e:  # noqa: BLE001
+            self._prompt(context, argv, "调用 MuMuManager 失败: %r" % (e,))
+            return
+        out = (rr.stdout or b"").decode("utf-8", "ignore") + (rr.stderr or b"").decode("utf-8", "ignore")
+        _dbg("MuMuManager restart 返回 %d: %s" % (rr.returncode, out[:300]))
+        if rr.returncode != 0:
+            self._prompt(context, argv, "MuMuManager 重启失败（返回 %d）" % rr.returncode)
+        else:
+            _dbg("已发出重启指令（实例 %s），配置将在模拟器重启后生效" % mi)
