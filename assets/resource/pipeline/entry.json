@@ -1,22 +1,32 @@
 {
     "Daily_CleanUp": {
         "doc": "总入口。第一步**先确保在大厅**（冷启动也能直接跑），然后才进日常阶段。\n\n阶段顺序：启动/回大厅 → 邮件 → 使魔探险 → 使魔的爱 → 世界那么大 → 战力补强 → 体力消耗 → 共鸣之力 → 收尾领奖 → 每周任务 → 终点。\n\n中间的 Daily_* 节点全是**切点**（DirectHit + DoNothing），本身不干活，只做路由：interface.json 里对应的开关把它的 next 改写到「执行」或「跳过」两个方向。pipeline 里的默认值 = 界面的默认值。\n\n⚠️ 存在感的四类任务（使魔的爱 / 世界那么大 / 战力补强 / 共鸣之力）是**顶层平级的步骤**，不嵌在某个「存在感阶段」里。相应地把「回存在感页 → 一键领取」单独拆成收尾的 Daily_ClaimRewards —— 那是最后一步的事。\n\n不需要额外的「回大厅」阶段：每个阶段的导航链自己会从任意页面把游戏带回目标页。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "[JumpBack]Common_NetWait",
             "App_Launch"
         ]
     },
-
     "App_Launch": {
         "doc": "启动流程入口。① 先**试活**：已经在大厅就直接往下走（一次模板匹配，几乎零成本）；② 否则拉起游戏并走完启动序列。\n\n═══ 关于「模拟器是否打开」═══\n这条**在 pipeline 里做不到**，也不该在这儿做：模拟器没启动时 ADB 根本连不上，控制器初始化就失败了，任务压根跑不起来。所以这个判定天然由**启动器**（MFAAvalonia 选设备 / adb connect）承担。pipeline 只负责「游戏是否打开」和「在不在大厅」。\n\n═══ 启动超时与重启 ═══\n等大厅等太久（界面选项「启动超时」控制，默认 120 秒）就**强停游戏重新拉起一次**；\n第二次还是超时就放弃、硬着头皮往下走。见 App_BootRestart 的 doc。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "Custom",
             "param": {
                 "custom_action": "phase_begin",
-                "custom_action_param": {"phase": "启动"}
+                "custom_action_param": {
+                    "phase": "启动"
+                }
             }
         },
         "next": [
@@ -25,13 +35,17 @@
             "App_Boot"
         ]
     },
-
     "App_Boot": {
         "doc": "拉起游戏。StartApp 等价于 am start：游戏没运行就冷启动，已在后台就切到前台。\n\n⚠️ 本机实测过 force-stop 之后回到的是 Android 桌面（app.lawnchair），桌面上的游戏图标在 (963,175)。StartApp 走的是包名启动，不依赖图标位置；万一将来要兜底点图标，坐标记在这里。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "StartApp",
-            "param": {"package": "com.miHoYo.HSoDv2Original"}
+            "param": {
+                "package": "com.miHoYo.HSoDv2Original"
+            }
         },
         "next": [
             "[JumpBack]Common_NetWait",
@@ -39,11 +53,16 @@
         ],
         "post_delay": 3000
     },
-
     "App_BootCycle": {
         "doc": "启动等待循环的**汇合点（第 1 次尝试）**。\n\nnext 三个成员从左到右：\n  1. `App_BootCount`   这一轮的计数 + 等待\n  2. `App_BootRestart` 计数耗尽 = 超时 → 强停游戏重启（max_hit 1，只重启一次）\n  3. `App_BootGiveUp`  重启额度用完 → 放弃\n\n⚠️ 为什么要有**两个汇合点**（BootCycle / BootCycle2）：\nmax_hit 是**整条任务**范围的计数器，重新启动游戏**不会**让它清零。\n如果超时重启后还回到同一个计数节点，它的 max_hit 早就耗尽了 —— 第二轮等于没有等待循环，会瞬间连续触发重启。所以每次尝试配一个**各自独立的计数节点**。\n\nnext 里的 App_BootGiveUp 保证它永不空手而归，恒命中在这里是安全的。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "[JumpBack]Common_NetWait",
             "App_BootCount",
@@ -51,14 +70,21 @@
             "App_BootGiveUp"
         ]
     },
-
     "App_BootCount": {
         "doc": "第 1 次尝试的计数器 + 节流。`max_hit` 由界面选项「启动超时」控制（秒数 ÷ 2，因为 post_delay 是 2000ms）。\n\n每轮顺序：先清启动类弹窗 → 看是不是已经到大厅 → 不是才去点标题 → 回汇合点等下一轮。\n\n⚠️ `[JumpBack]Startup_PopupGate` 必须放在循环体**里面**，不能只在进大厅之后清一次：\n游戏公告的面板几乎铺满屏幕（x≈60-1215），会**盖住左侧那个大厅图标**。\n弹窗不关掉，App_CheckLobby 永远匹配不上，循环只会一路空转到超时。\n\n⚠️ App_CheckLobby 的顺序：门控之后、TapTitle 之前。门控是 OCR 门控的（没弹窗就失配），不会挡住后面的候选。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "[JumpBack]Common_NetWait",
             "[JumpBack]Startup_PopupGate",
+            "App_PopupBudget",
+            "App_PopupOverflow",
             "App_CheckLobby",
             "App_TapTitle",
             "App_BootCycle"
@@ -66,13 +92,17 @@
         "post_delay": 2000,
         "max_hit": 60
     },
-
     "App_BootRestart": {
         "doc": "⭐ 超时 → **强停游戏再重新拉起一次**。\n\n用内建的 `StopApp`，不需要写 Python。\n\n`max_hit: 1` 是刻意的：**只重启一次**。第二次还是超时就交给 App_BootGiveUp ——\n如果网络真的断了，重启多少次都没用，无限重试只会把模拟器拖垮、把日志刷爆。\n\n触发场景（2026-09-19 实测遇到）：游戏卡在「网络连接中…」一直连不上，\n启动循环空转到超时。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "StopApp",
-            "param": {"package": "com.miHoYo.HSoDv2Original"}
+            "param": {
+                "package": "com.miHoYo.HSoDv2Original"
+            }
         },
         "next": [
             "[JumpBack]Common_NetWait",
@@ -81,13 +111,17 @@
         "post_delay": 2000,
         "max_hit": 1
     },
-
     "App_BootRelaunch": {
         "doc": "重启的第二段：把游戏拉起来，然后进第 2 次尝试的循环。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "StartApp",
-            "param": {"package": "com.miHoYo.HSoDv2Original"}
+            "param": {
+                "package": "com.miHoYo.HSoDv2Original"
+            }
         },
         "next": [
             "[JumpBack]Common_NetWait",
@@ -95,25 +129,37 @@
         ],
         "post_delay": 3000
     },
-
     "App_BootCycle2": {
         "doc": "第 2 次尝试的汇合点。结构与 App_BootCycle 相同，只是**不再有重启分支**（重启额度已经用掉了）。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "[JumpBack]Common_NetWait",
             "App_BootCount2",
             "App_BootGiveUp"
         ]
     },
-
     "App_BootCount2": {
         "doc": "第 2 次尝试的计数器。max_hit 与 App_BootCount 同源 —— 界面选项「启动超时」会同时覆盖这两个。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "[JumpBack]Common_NetWait",
             "[JumpBack]Startup_PopupGate",
+            "App_PopupBudget2",
+            "App_PopupGiveUp2",
             "App_CheckLobby",
             "App_TapTitle2",
             "App_BootCycle2"
@@ -121,17 +167,21 @@
         "post_delay": 2000,
         "max_hit": 60
     },
-
     "App_BootGiveUp": {
         "doc": "两次尝试都没能进大厅（网络断了 / 卡在更新 / 模拟器异常）。\n\n**仍然往下走**，让后面的阶段自己失败 —— 日志里能看到后续哪个节点开始报「找不到」，\n比整条任务在启动阶段就中断更好定位是网络问题还是识别问题。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "[JumpBack]Common_NetWait",
             "Daily_Mail"
         ]
     },
-
     "App_TapTitle": {
         "doc": "标题画面的「…屏幕继续」。\n\nexpected 只写「屏幕继续」四个字，不写全 —— 前半截（抚摸/触摸）在低置信度下容易被 OCR 读错，取尾部稳定子串更保险。\n\n点击点是写死的 (640,400)：**刻意避开右上角的「账号切换」**(≈1085,40) —— 点错了会切账号，主号上后果很严重。",
         "recognition": {
@@ -150,10 +200,12 @@
         },
         "action": {
             "type": "Click",
-            "param": {"target": [
+            "param": {
+                "target": [
                     640,
                     400
-                ]}
+                ]
+            }
         },
         "next": [
             "[JumpBack]Common_NetWait",
@@ -161,7 +213,6 @@
         ],
         "timeout": 2000
     },
-
     "App_TapTitle2": {
         "doc": "第 2 次尝试的标题点击。与 App_TapTitle 识别/动作完全相同，**只有 next 不同**（回 App_BootCycle2）。\n\n⚠️ 为什么必须复制一份而不能共用：2026-09-19 实机踩到 —— 共用时 next 写的是 App_BootCycle，\n第 2 次尝试里标题画面一出现，流程就被拽回**第 1 次尝试**的汇合点，而那边的\nApp_BootCount / App_BootRestart 早就耗尽，直接掉进 App_BootGiveUp。\n表现是「重启后明明已经进大厅了，脚本却放弃退出」—— 第 2 次只跑了 5 轮就被截断。\n\n归纳：**任何 next 指回「当前这一轮汇合点」的节点，都必须每轮一份**，\n不能跨轮共用（和 App_BootCount / App_BootCount2 同一个道理）。",
         "recognition": {
@@ -180,10 +231,12 @@
         },
         "action": {
             "type": "Click",
-            "param": {"target": [
+            "param": {
+                "target": [
                     640,
                     400
-                ]}
+                ]
+            }
         },
         "next": [
             "[JumpBack]Common_NetWait",
@@ -191,7 +244,6 @@
         ],
         "timeout": 2000
     },
-
     "App_CheckLobby": {
         "doc": "大厅判据：左侧栏第一个图标（任务中心）。\n\n为什么用它：这个图标**只在首页存在**。点进去之后左栏会整个换成「任务 / 存在感 / 每周任务 / 使魔探险」的文字按钮；切到战斗、装备、商店等页同样会换掉。所以它是「在大厅」的可靠特征。\n\n顶部那排 首页/战斗/装备/商店/社交/其他 不能用 —— 它们在**每个页面**都在，判不出当前位置。",
         "recognition": {
@@ -207,22 +259,29 @@
                 "threshold": 0.7
             }
         },
-        "action": {"type": "DoNothing", "param": {}},
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "[JumpBack]Common_NetWait",
             "App_CleanPopups"
         ],
         "timeout": 2000
     },
-
     "App_CleanPopups": {
         "doc": "进大厅后再清一遍弹窗，然后才交给日常。\n\n两个门控分工明确（用户 2026-09-19 的意见）：\n  Startup_PopupGate  启动类（公告 / 网络连接中 / 生日）—— 只在启动时出现\n  Common_PopupGate   运行期通用类（获得奖励 / 已领取以下奖励 / 确定）\n\n⚠️ 为什么进大厅后还要再跑一次 Startup 门控：公告有时候**比大厅晚一步**才弹出来。\n启动循环里那次可能刚好错过，这里补一道。",
-        "recognition": {"type": "DirectHit", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
         "action": {
             "type": "Custom",
             "param": {
                 "custom_action": "phase_end",
-                "custom_action_param": {"phase": "启动"}
+                "custom_action_param": {
+                    "phase": "启动"
+                }
             }
         },
         "next": [
@@ -232,61 +291,157 @@
             "Daily_Mail"
         ]
     },
-
     "Daily_Mail": {
         "doc": "切点：邮件领取。Yes→Mail_Entry；No→Daily_Summon。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "[JumpBack]Common_NetWait",
             "Mail_Entry"
         ]
     },
-
     "Daily_Summon": {
         "doc": "切点：使魔探险（每日任务「星辰的彼方」）。Yes→Summon_Entry；No→**直接接使魔的爱**（不经过存在感页的任何领取动作）。\n\n⚠️ 这里必须用切点，不能直接 override Summon_Entry 的 next —— Summon_Entry 同时是独立任务「仅使魔探险」的入口，改它会把那个任务一起改坏。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "[JumpBack]Common_NetWait",
             "Summon_Entry"
         ]
     },
-
     "Daily_Stamina": {
         "doc": "切点：体力消耗循环。Yes→Stamina_Entry（其后 Stamina_PhaseDone 接共鸣之力）；No→直接接共鸣之力。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "[JumpBack]Common_NetWait",
             "Stamina_Entry"
         ]
     },
-
     "Daily_ClaimRewards": {
         "doc": "切点：收尾领奖。跑完前面所有任务后回存在感页，把这一轮新解锁的里程碑奖励收掉。Yes→ClaimRewards_Entry；No→Daily_Weekly。\n\n排在体力消耗**之后**是有意的：体力消耗产生的存在感也在这一轮里解锁，早领会漏。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "[JumpBack]Common_NetWait",
             "ClaimRewards_Entry"
         ]
     },
-
     "Daily_Weekly": {
         "doc": "切点：每周任务。Yes→Weekly_Entry；No→直接 Daily_Finish。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": [
             "[JumpBack]Common_NetWait",
             "Weekly_Entry"
         ]
     },
-
     "Daily_Finish": {
         "doc": "终点。",
-        "recognition": {"type": "DirectHit", "param": {}},
-        "action": {"type": "DoNothing", "param": {}},
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
         "next": []
+    },
+    "App_PopupBudget": {
+        "doc": "⭐ **弹窗检测次数上限**（用户 2026-09-22 提出）。\n\n开机循环每转一圈都走这里。有额度就命中、把流程交回原本的下一步；\n额度用尽就失配 ⟹ 调用方的 next 顺延到 App_PopupOverflow ⟹ **重启游戏**。\n\n═══ 要防的是什么 ═══\n误触碰到脚本处理不了的页面时，开机循环会空转：弹窗门控认不出东西、\nApp_CheckLobby 也匹配不到大厅，转一圈又一圈，要等 App_BootCount 的额度\n（60 圈 ≈ 2 分钟）耗光才走 App_BootRestart —— **等太久**。\n本节点把这个判定提前到用户能接受的圈数（界面「弹窗检测上限」）。\n\n═══ ⚠️ next 为什么把调用方的后半段抄了一遍 ═══\n它是「命中后下降进去」的普通候选，必须有非空 next；\n而 next 候选**全失配会让整条任务报错**（§5.9②），所以末尾挂恒命中的\nApp_BootCycle 兜底。代价是这段和 App_BootCount.next 的后半段重复 ——\n**改一个要改两处**。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "App_CheckLobby",
+            "App_TapTitle",
+            "App_BootCycle"
+        ],
+        "max_hit": 20
+    },
+    "App_PopupOverflow": {
+        "doc": "额度用尽 ⟹ **重启游戏**。\n\n它排在 App_PopupBudget **之后**、App_CheckLobby **之前**：\nBudget 还有额度就先命中、流程根本走不到这里；\nBudget 失配之后，DirectHit 的它必然命中 ⟹ 直接去 App_BootRestart。\n\n用现成的重启链（StopApp → App_BootRelaunch 的 StartApp），不另写。\n⚠️ 重启后进的是 App_BootCycle2（第二次尝试），那边的额度用尽会走\nApp_PopupGiveUp2 → App_BootGiveUp，**不再重启** —— 避免无限重启。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "App_BootRestart"
+        ]
+    },
+    "App_PopupBudget2": {
+        "doc": "同上，但这是**第二次尝试**（重启之后那一轮，见 App_BootCycle2）。\n额度用尽走 App_PopupGiveUp2 → 放弃，不再重启 —— 第二次是最后一轮。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "App_CheckLobby",
+            "App_TapTitle2",
+            "App_BootCycle2"
+        ],
+        "max_hit": 20
+    },
+    "App_PopupGiveUp2": {
+        "doc": "第二次尝试的额度也用尽 ⟹ 放弃，交给 App_BootGiveUp 继续往下跑。\n\n不在这里再重启：App_BootCycle2 的 next 本来就只有 [App_BootCount2, App_BootGiveUp]，\n没有重启分支 —— 那是上游的设计（只允许重启一次，避免无限重试拖垮模拟器）。",
+        "recognition": {
+            "type": "DirectHit",
+            "param": {}
+        },
+        "action": {
+            "type": "DoNothing",
+            "param": {}
+        },
+        "next": [
+            "[JumpBack]Common_NetWait",
+            "App_BootGiveUp"
+        ]
     }
 }

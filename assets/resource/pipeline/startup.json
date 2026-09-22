@@ -1,6 +1,6 @@
 {
     "Startup_PopupGate": {
-        "doc": "⭐ **启动流程专用**弹窗门控。\n\n═══ 为什么不复用 Common_PopupGate（用户 2026-09-19 的设计意见）═══\n这些弹窗**只在启动时出现**。混进通用门控的代价是：日常流程里每一次「查一下有没有弹窗」都要多跑这几个识别 —— 既是性能开销，也扩大了误判面（公告页签上的文字、loading 文案，在别的页面也可能误匹配）。分开之后各管各的。\n\n处理顺序（同一个 next 列表内失配会顺延）：\n  1. Startup_DailyCheckin     每日签到，点「领取」收下当天奖励\n  2. Startup_NoticeClose      游戏公告（每日首次登录），点右上角关闭\n  3. Startup_ConnectingWait   「网络连接中…」自消散 loading，只等不点\n  4. Startup_BirthdayClose    角色生日弹窗（占位，未实现）\n  5. Startup_PopupNone        兜底终点，返回调用方\n\n⚠️ 1 和 2 会**连着来**：签到点完「领取」后，游戏公告紧接着弹出（2026-09-20 实测）。\n所以门控会连着命中两次，这不是重复处理 —— 是两个不同的弹窗。\n\n═══ 结构与 Common_PopupGate 完全同构 ═══\n识别是 Or（不能是 DirectHit，否则调用方反复重入会死循环）、末尾有恒命中兜底、\n自己的 max_hit 是循环刹车、处理器的 max_hit 必须大于门控的。\n详见 common.json 里 Common_PopupGate 的 doc，这里不重复。\n\n⚠️ 加新处理器时，除了往 next 里加一行 `[JumpBack]新节点`，**还要把新节点的识别\n加进上面的 any_of** —— 门控靠 any_of 判断「有没有弹窗」，漏加就永远不命中。",
+        "doc": "⭐ **启动流程专用**弹窗门控。\n\n═══ 为什么不复用 Common_PopupGate（用户 2026-09-19 的设计意见）═══\n这些弹窗**只在启动时出现**。混进通用门控的代价是：日常流程里每一次「查一下有没有弹窗」都要多跑这几个识别 —— 既是性能开销，也扩大了误判面（公告页签上的文字、loading 文案，在别的页面也可能误匹配）。分开之后各管各的。\n\n处理顺序（同一个 next 列表内失配会顺延）：\n  1. Startup_DailyCheckin     每日签到，点「领取」收下当天奖励\n  2. Startup_NoticeClose      游戏公告（每日首次登录），点右上角关闭\n  3. Startup_ConnectingWait   「网络连接中…」自消散 loading，只等不点\n  4. Startup_BirthdayClose    角色生日弹窗（占位，未实现）\n  5. Startup_PopupNone        兜底终点，返回调用方\n\n⚠️ 1 和 2 会**连着来**：签到点完「领取」后，游戏公告紧接着弹出（2026-09-20 实测）。\n所以门控会连着命中两次，这不是重复处理 —— 是两个不同的弹窗。\n\n═══ 结构与 Common_PopupGate 完全同构 ═══\n识别是 Or（不能是 DirectHit，否则调用方反复重入会死循环）、末尾有恒命中兜底、\n自己的 max_hit 是循环刹车、处理器的 max_hit 必须大于门控的。\n详见 common.json 里 Common_PopupGate 的 doc，这里不重复。\n\n⚠️ 加新处理器时，除了往 next 里加一行 `[JumpBack]新节点`，**还要把新节点的识别\n加进上面的 any_of** —— 门控靠 any_of 判断「有没有弹窗」，漏加就永远不命中。\n\n═══ ⚠️ max_hit 从 100 收到 20（2026-09-22）═══\n它管的是「**一圈之内**弹窗处理器能自旋几次」。原来 100 偏大：\n万一有个关不掉的弹窗，它会在**同一圈里**把额度烧光，\n而外层的 App_PopupBudget（按**圈**计数）根本不推进 ⟹ 永远等不到重启。\n这和 Startup_ConnectingWait 那个「内层计时器吞掉外层计时」是同一类问题。\n20 足够处理一轮里的签到 + 广告 + 公告 + 月卡三连等全部弹窗。",
         "recognition": {
             "type": "Or",
             "param": {
@@ -29,7 +29,7 @@
             "[JumpBack]Startup_BirthdayClose",
             "Startup_PopupNone"
         ],
-        "max_hit": 100
+        "max_hit": 20
     },
     "Startup_PopupNone": {
         "doc": "门控的兜底终点：本轮没有启动类弹窗要处理。\n\n恒命中 + `next: []`，由门控**下降**进入，而门控是被 `[JumpBack]` 调用的，所以这里的空 next 含义是「子程序结束、返回调用方」。\n\n⚠️ 绝不能把它当普通 next 成员放进别的节点 —— 那样会终止整条任务。只属于 Startup_PopupGate。",

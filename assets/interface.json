@@ -94,6 +94,7 @@
             // 顺序 = 管线里的阶段顺序，见 entry.json 的 Daily_CleanUp。
             "option": [
                 "启动超时",
+                "弹窗检测上限",
                 "邮件领取",
                 "使魔探险",
                 "使魔的爱",
@@ -170,6 +171,39 @@
                         "App_BootCount2": {
                             "max_hit": 150
                         }
+                    }
+                }
+            ]
+        },
+        // 开机循环里「连续多少圈没进大厅就重启游戏」。
+        // ⚠️ 它和「启动超时」是两个不同的东西：
+        //   启动超时  管的是「等大厅等多久」（App_BootCount.max_hit）
+        //   本选项    管的是「弹窗/误触死循环多少圈就重来」（App_PopupBudget.max_hit）
+        // 两者都在开机循环里数，但本选项会**提前**触发重启，不用等满超时。
+        "弹窗检测上限": {
+            "type": "select",
+            "description": "开机时连续多少圈没能进入大厅，就**重启游戏**。\n\n用来兜住「误触碰到脚本处理不了的页面」这类死循环 —— 与其干等到「启动超时」，不如早点重启。\n\n一圈 ≈ 2 秒（开机循环每轮的间隔）。所以：\n  10 次 ≈ 20 秒\n  20 次 ≈ 40 秒（默认）\n  40 次 ≈ 80 秒\n\n弹窗多、机器慢就调大；受不了一直卡着就调小。\n\n⚠️ 重启**只做一次**：第二次尝试再用尽这个额度就直接放弃、硬着头皮往下跑（避免无限重启拖垮模拟器）。",
+            "default_case": "20次",
+            "cases": [
+                {
+                    "name": "10次",
+                    "pipeline_override": {
+                        "App_PopupBudget": {"max_hit": 10},
+                        "App_PopupBudget2": {"max_hit": 10}
+                    }
+                },
+                {
+                    "name": "20次",
+                    "pipeline_override": {
+                        "App_PopupBudget": {"max_hit": 20},
+                        "App_PopupBudget2": {"max_hit": 20}
+                    }
+                },
+                {
+                    "name": "40次",
+                    "pipeline_override": {
+                        "App_PopupBudget": {"max_hit": 40},
+                        "App_PopupBudget2": {"max_hit": 40}
                     }
                 }
             ]
